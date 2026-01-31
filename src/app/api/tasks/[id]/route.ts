@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { queryOne, run, queryAll } from '@/lib/db';
 import { broadcast } from '@/lib/events';
+import { getMissionControlUrl } from '@/lib/config';
 import type { Task, UpdateTaskRequest, Agent, TaskDeliverable } from '@/lib/types';
 
 // GET /api/tasks/[id] - Get a single task
@@ -156,7 +157,19 @@ export async function PATCH(
 
     run(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`, values);
 
-    const task = queryOne<Task>('SELECT * FROM tasks WHERE id = ?', [id]);
+    // Fetch updated task with all joined fields
+    const task = queryOne<Task>(
+      `SELECT t.*,
+        aa.name as assigned_agent_name,
+        aa.avatar_emoji as assigned_agent_emoji,
+        ca.name as created_by_agent_name,
+        ca.avatar_emoji as created_by_agent_emoji
+       FROM tasks t
+       LEFT JOIN agents aa ON t.assigned_agent_id = aa.id
+       LEFT JOIN agents ca ON t.created_by_agent_id = ca.id
+       WHERE t.id = ?`,
+      [id]
+    );
 
     // Broadcast task update via SSE
     if (task) {
@@ -169,7 +182,8 @@ export async function PATCH(
     // Trigger auto-dispatch if needed
     if (shouldDispatch) {
       // Call dispatch endpoint asynchronously (don't wait for response)
-      fetch(`http://localhost:3000/api/tasks/${id}/dispatch`, {
+      const missionControlUrl = getMissionControlUrl();
+      fetch(`${missionControlUrl}/api/tasks/${id}/dispatch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       }).catch(err => {

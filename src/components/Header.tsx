@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Zap, Plus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Zap, Settings } from 'lucide-react';
 import { useMissionControl } from '@/lib/store';
 import { format } from 'date-fns';
 
 export function Header() {
+  const router = useRouter();
   const { agents, tasks, isOnline, selectedBusiness, setSelectedBusiness } = useMissionControl();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeSubAgents, setActiveSubAgents] = useState(0);
@@ -93,6 +95,13 @@ export function Header() {
           />
           {isOnline ? 'ONLINE' : 'OFFLINE'}
         </div>
+        <button
+          onClick={() => router.push('/settings')}
+          className="p-2 hover:bg-mc-bg-tertiary rounded text-mc-text-secondary"
+          title="Settings"
+        >
+          <Settings className="w-5 h-5" />
+        </button>
       </div>
     </header>
   );

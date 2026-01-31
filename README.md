@@ -47,46 +47,53 @@ See [Agent Protocol Documentation](docs/AGENT_PROTOCOL.md) for full details.
 ### Prerequisites
 
 - Node.js 20+
-- OpenClaw running locally (`openclaw gateway`)
+- OpenClaw running locally (`openclaw gateway start`)
 - npm or pnpm
 
-### Installation
+### 5-Minute Setup
 
 ```bash
-# Clone or navigate to the project
+# Clone the repository
+git clone https://github.com/yourusername/mission-control.git
 cd mission-control
 
 # Install dependencies
 npm install
 
-# Seed the database with Charlie and sample data
+# Configure environment
+cp .env.example .env.local
+# Edit .env.local with your paths and settings
+
+# Initialize database
 npm run db:seed
 
-# Start the development server
+# Start development server
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to see Mission Control.
 
-### Environment Variables
+### Configuration
 
-Copy `.env.example` to `.env.local` and configure:
+Mission Control supports **two configuration methods**:
 
-```bash
-cp .env.example .env.local
-```
+1. **Environment Variables** (`.env.local`) - Server-side config, best for deployments
+2. **Settings UI** - User preferences via web interface (Settings → gear icon)
+
+**📖 For complete setup instructions, see [Production Setup Guide](PRODUCTION_SETUP.md)**
+
+### Key Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENCLAW_GATEWAY_URL` | `ws://127.0.0.1:18789` | OpenClaw Gateway WebSocket URL |
-| `OPENCLAW_GATEWAY_TOKEN` | (empty) | Authentication token for remote connections |
-| `DATABASE_PATH` | `./mission-control.db` | SQLite database file path |
+| `WORKSPACE_BASE_PATH` | `~/Documents/Shared` | Base directory for workspace |
+| `PROJECTS_PATH` | `~/Documents/Shared/projects` | Project folders location |
+| `MISSION_CONTROL_URL` | Auto-detected | API URL for orchestration |
+| `OPENCLAW_GATEWAY_URL` | `ws://127.0.0.1:18789` | Gateway WebSocket URL |
+| `OPENCLAW_GATEWAY_TOKEN` | (empty) | Auth token (required for remote) |
+| `DATABASE_PATH` | `./mission-control.db` | SQLite database path |
 
-**Remote Connections**: For connecting to OpenClaw on another machine via Tailscale:
-```bash
-OPENCLAW_GATEWAY_URL=wss://your-machine.tail12345.ts.net
-OPENCLAW_GATEWAY_TOKEN=your-64-char-hex-token
-```
+**⚠️ Security:** Never commit `.env.local`! It's gitignored by default.
 
 ## Architecture
 

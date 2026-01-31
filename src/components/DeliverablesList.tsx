@@ -48,12 +48,19 @@ export function DeliverablesList({ taskId }: DeliverablesListProps) {
     }
   };
 
-  const handleOpen = (deliverable: TaskDeliverable) => {
+  const handleOpen = async (deliverable: TaskDeliverable) => {
     if (deliverable.deliverable_type === 'url' && deliverable.path) {
       window.open(deliverable.path, '_blank');
     } else if (deliverable.path) {
-      // For files, we could trigger a download or open in a viewer
-      console.log('Open file:', deliverable.path);
+      // For files, copy path to clipboard
+      try {
+        await navigator.clipboard.writeText(deliverable.path);
+        alert(`Path copied to clipboard:\n${deliverable.path}`);
+      } catch (error) {
+        console.error('Failed to copy to clipboard:', error);
+        // Fallback: show alert with path
+        alert(`File path:\n${deliverable.path}\n\n(Could not copy to clipboard)`);
+      }
     }
   };
 
