@@ -17,9 +17,28 @@ Every action you take MUST be reflected in Mission Control via API calls. The da
 curl -s http://192.168.0.216:3000/api/tasks?status=inbox
 ```
 
-If tasks exist in INBOX, process them. If not, check IN_PROGRESS tasks.
+If tasks exist in INBOX, process them. If not, check REVIEW tasks.
 
-### Step 2: Check IN_PROGRESS tasks
+### Step 2: Check REVIEW tasks (Auto-Test)
+```bash
+curl -s http://192.168.0.216:3000/api/tasks?status=review
+```
+
+For each REVIEW task, run automated tests before human review:
+```bash
+curl -X POST http://192.168.0.216:3000/api/tasks/{TASK_ID}/test
+```
+
+The test endpoint will:
+- Load HTML deliverables in a headless browser
+- Check for JavaScript console errors
+- Take screenshots
+- Return pass/fail results
+
+**If tests PASS:** Task stays in REVIEW with activity log "✅ Automated test passed"
+**If tests FAIL:** Task auto-moves to ASSIGNED with activity log showing errors
+
+### Step 3: Check IN_PROGRESS tasks
 ```bash
 curl -s http://192.168.0.216:3000/api/tasks?status=in_progress
 ```
@@ -144,6 +163,7 @@ http://192.168.0.216:3000
 
 Before responding with HEARTBEAT_OK, verify:
 - [ ] No tasks in INBOX that need processing
+- [ ] All REVIEW tasks have been auto-tested (call /api/tasks/{id}/test)
 - [ ] All IN_PROGRESS tasks have active sub-agents working
 - [ ] All completed work has been registered as deliverables
 - [ ] All completed sub-agents have been marked complete
