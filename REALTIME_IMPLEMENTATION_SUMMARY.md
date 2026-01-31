@@ -262,7 +262,7 @@ POST /api/tasks/[id]/activities
 - ✅ Real-time UI updates
 
 ### Manual Testing
-- ✅ Tested on M4 (192.168.0.216:3000)
+- ✅ Tested on M4 (localhost:3000)
 - ✅ Tested with multiple browsers
 - ✅ Tested under load (50+ concurrent clients)
 - ✅ Memory leak testing (no leaks detected)
@@ -364,7 +364,7 @@ No additional environment variables required. Uses existing:
 
 ### Port Configuration
 
-- Development: `http://192.168.0.216:3000`
+- Development: `http://localhost:3000`
 - Production: Configure nginx/reverse proxy for SSE support
 
 ### SSE Proxy Configuration (if using nginx)
