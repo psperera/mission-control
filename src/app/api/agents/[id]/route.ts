@@ -116,6 +116,16 @@ export async function DELETE(
       return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
     }
 
+    // Delete or nullify related records first (foreign key constraints)
+    run('DELETE FROM openclaw_sessions WHERE agent_id = ?', [id]);
+    run('DELETE FROM events WHERE agent_id = ?', [id]);
+    run('DELETE FROM messages WHERE sender_agent_id = ?', [id]);
+    run('DELETE FROM conversation_participants WHERE agent_id = ?', [id]);
+    run('UPDATE tasks SET assigned_agent_id = NULL WHERE assigned_agent_id = ?', [id]);
+    run('UPDATE tasks SET created_by_agent_id = NULL WHERE created_by_agent_id = ?', [id]);
+    run('UPDATE task_activities SET agent_id = NULL WHERE agent_id = ?', [id]);
+
+    // Now delete the agent
     run('DELETE FROM agents WHERE id = ?', [id]);
 
     return NextResponse.json({ success: true });

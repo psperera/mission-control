@@ -131,20 +131,82 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     const updatedSession = db.prepare('SELECT * FROM openclaw_sessions WHERE id = ?').get(session.id);
 
-    // Broadcast session completion if status changed to completed
-    if (status === 'completed' && session.task_id) {
-      broadcast({
-        type: 'agent_completed',
-        payload: {
-          taskId: session.task_id,
-          sessionId: id,
-        },
-      });
+    // If status changed to completed, update the agent status too
+    if (status === 'completed') {
+      if (session.agent_id) {
+        db.prepare('UPDATE agents SET status = ? WHERE id = ?').run('idle', session.agent_id);
+      }
+      if (session.task_id) {
+        broadcast({
+          type: 'agent_completed',
+          payload: {
+            taskId: session.task_id,
+            sessionId: id,
+          },
+        });
+      }
     }
 
     return NextResponse.json(updatedSession);
   } catch (error) {
     console.error('Failed to update OpenClaw session:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/openclaw/sessions/[id] - Delete a session and its associated agent
+export async function DELETE(request: Request, { params }: RouteParams) {
+  try {
+    const { id } = await params;
+    const db = getDb();
+
+    // Find session by openclaw_session_id or internal id
+    let session = db.prepare('SELECT * FROM openclaw_sessions WHERE openclaw_session_id = ?').get(id) as any;
+
+    if (!session) {
+      session = db.prepare('SELECT * FROM openclaw_sessions WHERE id = ?').get(id) as any;
+    }
+
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Session not found' },
+        { status: 404 }
+      );
+    }
+
+    const taskId = session.task_id;
+    const agentId = session.agent_id;
+
+    // Delete the session
+    db.prepare('DELETE FROM openclaw_sessions WHERE id = ?').run(session.id);
+
+    // If there's an associated agent that was auto-created (role = 'Sub-Agent'), delete it too
+    if (agentId) {
+      const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(agentId) as any;
+      if (agent && agent.role === 'Sub-Agent') {
+        db.prepare('DELETE FROM agents WHERE id = ?').run(agentId);
+      } else if (agent) {
+        // Update non-subagent back to idle
+        db.prepare('UPDATE agents SET status = ? WHERE id = ?').run('idle', agentId);
+      }
+    }
+
+    // Broadcast deletion event
+    broadcast({
+      type: 'agent_completed',
+      payload: {
+        taskId,
+        sessionId: id,
+        deleted: true,
+      },
+    });
+
+    return NextResponse.json({ success: true, deleted: session.id });
+  } catch (error) {
+    console.error('Failed to delete OpenClaw session:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

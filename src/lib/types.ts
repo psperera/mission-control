@@ -206,6 +206,7 @@ export interface AgentWithOpenClaw extends Agent {
 export type SSEEventType =
   | 'task_updated'
   | 'task_created'
+  | 'task_deleted'
   | 'activity_logged'
   | 'deliverable_added'
   | 'agent_spawned'
@@ -218,5 +219,8 @@ export interface SSEEvent {
     sessionId: string;
     agentName?: string;
     summary?: string;
+    deleted?: boolean;
+  } | {
+    id: string;  // For task_deleted events
   };
 }

@@ -4,6 +4,49 @@ All notable changes to Mission Control will be documented in this file.
 
 ## [Unreleased]
 
+### Added - Cross-Machine Orchestration & Bug Fixes (2026-01-31)
+
+**🌐 Cross-Machine File Delivery**
+- **File Upload API** (`POST /api/files/upload`): Remote agents (e.g., on M1 Mac) can now upload files to Mission Control server (M4 Mac) via HTTP
+- Files saved to `/Users/chris/mission-control-projects/{relativePath}`
+- Path traversal security protection
+- Returns full path for deliverable registration
+
+**🛠️ Bug Fixes**
+- **Task Deletion**: Fixed foreign key constraint errors when deleting tasks
+  - Now properly cleans up: `openclaw_sessions`, `events`, `conversations`
+  - Cascading deletes handle `task_activities` and `task_deliverables`
+- **Agent Deletion**: Fixed foreign key constraint errors when deleting agents
+  - Cleans up: `openclaw_sessions`, `events`, `messages`, `conversation_participants`
+  - Nullifies references in `tasks` table
+- **Task Status Changes**: Users can now move tasks to DONE from the UI
+  - Master agent approval only required for agent-initiated moves
+  - User-initiated moves (no agent ID) are allowed
+- **Task Auto-Revert Fix**: Agent completion webhook no longer overwrites `review` or `done` status
+  - Prevents Charlie's completion signals from reverting user-approved tasks
+
+**🗑️ Session Management**
+- **Delete Sessions**: Can now delete stuck/unwanted sub-agent sessions via UI
+- **Mark Complete**: Can manually mark active sessions as complete via UI
+- `DELETE /api/openclaw/sessions/[id]` endpoint
+- `PATCH /api/openclaw/sessions/[id]` updates agent status to 'idle' on completion
+
+**💾 Database Management**
+- `npm run db:backup` - Checkpoint and backup current database state
+- `npm run db:restore` - Restore from backup
+- `npm run db:reset` - Full reset with seeds
+
+**📚 Documentation**
+- **HEARTBEAT.md**: Instructions for orchestrating LLMs (Charlie) to call Mission Control APIs
+- **ORCHESTRATION.md**: Updated with all new endpoints and file upload workflow
+- Cross-machine architecture notes (M1 ↔ M4 setup)
+
+**🔧 Type System**
+- Added `task_deleted` SSE event type
+- Updated payload types for deletion events
+
+---
+
 ### Added - Production-Ready Refactor (2026-01-31)
 
 **🔒 Security & Configuration**

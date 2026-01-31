@@ -6,8 +6,11 @@ import { AgentsSidebar } from '@/components/AgentsSidebar';
 import { MissionQueue } from '@/components/MissionQueue';
 import { LiveFeed } from '@/components/LiveFeed';
 import { ChatPanel } from '@/components/ChatPanel';
+import { SSEDebugPanel } from '@/components/SSEDebugPanel';
 import { useMissionControl } from '@/lib/store';
 import { useSSE } from '@/hooks/useSSE';
+import { debug } from '@/lib/debug';
+import type { Task } from '@/lib/types';
 
 export default function MissionControlPage() {
   const {
@@ -18,6 +21,7 @@ export default function MissionControlPage() {
     setIsOnline,
     setIsLoading,
     isLoading,
+    tasks,
   } = useMissionControl();
 
   const [showChat, setShowChat] = useState(false);
@@ -29,6 +33,7 @@ export default function MissionControlPage() {
   useEffect(() => {
     async function loadData() {
       try {
+        debug.api('Loading initial data...');
         // Fetch all data in parallel
         const [agentsRes, tasksRes, conversationsRes, eventsRes] = await Promise.all([
           fetch('/api/agents'),
@@ -38,7 +43,11 @@ export default function MissionControlPage() {
         ]);
 
         if (agentsRes.ok) setAgents(await agentsRes.json());
-        if (tasksRes.ok) setTasks(await tasksRes.json());
+        if (tasksRes.ok) {
+          const tasksData = await tasksRes.json();
+          debug.api('Loaded tasks', { count: tasksData.length });
+          setTasks(tasksData);
+        }
         if (conversationsRes.ok) setConversations(await conversationsRes.json());
         if (eventsRes.ok) setEvents(await eventsRes.json());
       } catch (error) {
@@ -81,6 +90,35 @@ export default function MissionControlPage() {
       }
     }, 5000);
 
+    // Poll tasks as SSE fallback (every 10 seconds)
+    const taskPoll = setInterval(async () => {
+      try {
+        const res = await fetch('/api/tasks');
+        if (res.ok) {
+          const newTasks: Task[] = await res.json();
+          // Get current tasks from store
+          const currentTasks = useMissionControl.getState().tasks;
+
+          // Check if there are any changes
+          const hasChanges = newTasks.length !== currentTasks.length ||
+            newTasks.some((t) => {
+              const current = currentTasks.find(ct => ct.id === t.id);
+              return !current || current.status !== t.status;
+            });
+
+          if (hasChanges) {
+            debug.api('[FALLBACK] Task changes detected, updating store', {
+              oldCount: currentTasks.length,
+              newCount: newTasks.length
+            });
+            setTasks(newTasks);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to poll tasks:', error);
+      }
+    }, 10000);
+
     // Check OpenClaw connection every 30 seconds
     const connectionCheck = setInterval(async () => {
       try {
@@ -97,6 +135,7 @@ export default function MissionControlPage() {
     return () => {
       clearInterval(eventPoll);
       clearInterval(connectionCheck);
+      clearInterval(taskPoll);
     };
   }, []);
 
@@ -153,6 +192,9 @@ export default function MissionControlPage() {
         {/* Live Feed */}
         <LiveFeed />
       </div>
+
+      {/* Debug Panel - only shows when debug mode enabled */}
+      <SSEDebugPanel />
     </div>
   );
 }

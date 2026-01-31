@@ -6,7 +6,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Bot, CheckCircle, Circle, XCircle } from 'lucide-react';
+import { Bot, CheckCircle, Circle, XCircle, Trash2, Check } from 'lucide-react';
 
 interface SessionWithAgent {
   id: string;
@@ -90,6 +90,38 @@ export function SessionsList({ taskId }: SessionsListProps) {
     });
   };
 
+  const handleMarkComplete = async (sessionId: string) => {
+    try {
+      const res = await fetch(`/api/openclaw/sessions/${sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'completed',
+          ended_at: new Date().toISOString(),
+        }),
+      });
+      if (res.ok) {
+        loadSessions();
+      }
+    } catch (error) {
+      console.error('Failed to mark session complete:', error);
+    }
+  };
+
+  const handleDelete = async (sessionId: string) => {
+    if (!confirm('Delete this sub-agent session?')) return;
+    try {
+      const res = await fetch(`/api/openclaw/sessions/${sessionId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        loadSessions();
+      }
+    } catch (error) {
+      console.error('Failed to delete session:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -156,6 +188,26 @@ export function SessionsList({ taskId }: SessionsListProps) {
                 Channel: <span className="font-mono">{session.channel}</span>
               </div>
             )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-1">
+            {session.status === 'active' && (
+              <button
+                onClick={() => handleMarkComplete(session.openclaw_session_id)}
+                className="p-1.5 hover:bg-mc-bg-tertiary rounded text-green-500"
+                title="Mark as complete"
+              >
+                <Check className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              onClick={() => handleDelete(session.openclaw_session_id)}
+              className="p-1.5 hover:bg-mc-bg-tertiary rounded text-red-500"
+              title="Delete session"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         </div>
       ))}

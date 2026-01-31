@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { debug } from './debug';
 import type { Agent, Task, Conversation, Message, Event, TaskStatus, OpenClawSession } from './types';
 
 interface MissionControlState {
@@ -71,7 +72,10 @@ export const useMissionControl = create<MissionControlState>((set) => ({
 
   // Setters
   setAgents: (agents) => set({ agents }),
-  setTasks: (tasks) => set({ tasks }),
+  setTasks: (tasks) => {
+    debug.store('setTasks called', { count: tasks.length });
+    set({ tasks });
+  },
   setConversations: (conversations) => set({ conversations }),
   setEvents: (events) => set({ events }),
   addEvent: (event) =>
@@ -81,25 +85,50 @@ export const useMissionControl = create<MissionControlState>((set) => ({
   addMessage: (message) =>
     set((state) => ({ messages: [...state.messages, message] })),
   setSelectedAgent: (agent) => set({ selectedAgent: agent }),
-  setSelectedTask: (task) => set({ selectedTask: task }),
-  setIsOnline: (online) => set({ isOnline: online }),
+  setSelectedTask: (task) => {
+    debug.store('setSelectedTask called', { id: task?.id, status: task?.status });
+    set({ selectedTask: task });
+  },
+  setIsOnline: (online) => {
+    debug.store('setIsOnline called', { online });
+    set({ isOnline: online });
+  },
   setIsLoading: (loading) => set({ isLoading: loading }),
   setSelectedBusiness: (business) => set({ selectedBusiness: business }),
 
   // Task mutations
-  updateTaskStatus: (taskId, status) =>
+  updateTaskStatus: (taskId, status) => {
+    debug.store('updateTaskStatus called', { taskId, status });
     set((state) => ({
       tasks: state.tasks.map((task) =>
         task.id === taskId ? { ...task, status } : task
       ),
-    })),
-  updateTask: (updatedTask) =>
-    set((state) => ({
-      tasks: state.tasks.map((task) =>
-        task.id === updatedTask.id ? updatedTask : task
-      ),
-    })),
-  addTask: (task) => set((state) => ({ tasks: [task, ...state.tasks] })),
+    }));
+  },
+  updateTask: (updatedTask) => {
+    debug.store('updateTask called', { id: updatedTask.id, status: updatedTask.status });
+    set((state) => {
+      const oldTask = state.tasks.find(t => t.id === updatedTask.id);
+      if (oldTask) {
+        debug.store('Task state change', {
+          id: updatedTask.id,
+          oldStatus: oldTask.status,
+          newStatus: updatedTask.status
+        });
+      } else {
+        debug.store('Task not found in store, adding', { id: updatedTask.id });
+      }
+      return {
+        tasks: state.tasks.map((task) =>
+          task.id === updatedTask.id ? updatedTask : task
+        ),
+      };
+    });
+  },
+  addTask: (task) => {
+    debug.store('addTask called', { id: task.id, title: task.title });
+    set((state) => ({ tasks: [task, ...state.tasks] }));
+  },
 
   // Agent mutations
   updateAgent: (updatedAgent) =>

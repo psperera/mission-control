@@ -38,11 +38,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Task not found' }, { status: 404 });
       }
 
-      // Move to review
-      run(
-        'UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?',
-        ['review', now, task.id]
-      );
+      // Only move to review if not already in review or done
+      // (Don't overwrite user's approval)
+      if (task.status !== 'review' && task.status !== 'done') {
+        run(
+          'UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?',
+          ['review', now, task.id]
+        );
+      }
 
       // Log completion
       run(
@@ -119,11 +122,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Move to review
-      run(
-        'UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?',
-        ['review', now, task.id]
-      );
+      // Only move to review if not already in review or done
+      // (Don't overwrite user's approval)
+      if (task.status !== 'review' && task.status !== 'done') {
+        run(
+          'UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?',
+          ['review', now, task.id]
+        );
+      }
 
       // Log completion with summary
       run(

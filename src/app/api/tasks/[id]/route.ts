@@ -51,15 +51,10 @@ export async function PATCH(
     const values: unknown[] = [];
     const now = new Date().toISOString();
 
-    // Workflow enforcement: Only master agents can move from review to done
-    if (body.status === 'done' && existing.status === 'review') {
-      if (!body.updated_by_agent_id) {
-        return NextResponse.json(
-          { error: 'Approval required: only master agent can move tasks from review to done' },
-          { status: 403 }
-        );
-      }
-
+    // Workflow enforcement for agent-initiated approvals
+    // If an agent is trying to move review→done, they must be a master agent
+    // User-initiated moves (no agent ID) are allowed
+    if (body.status === 'done' && existing.status === 'review' && body.updated_by_agent_id) {
       const updatingAgent = queryOne<Agent>(
         'SELECT is_master FROM agents WHERE id = ?',
         [body.updated_by_agent_id]
@@ -69,19 +64,6 @@ export async function PATCH(
         return NextResponse.json(
           { error: 'Forbidden: only master agent (Charlie) can approve tasks' },
           { status: 403 }
-        );
-      }
-
-      // Verify task has deliverables before approving
-      const deliverables = queryAll<TaskDeliverable>(
-        'SELECT * FROM task_deliverables WHERE task_id = ?',
-        [id]
-      );
-
-      if (deliverables.length === 0) {
-        return NextResponse.json(
-          { error: 'Cannot approve task: no deliverables found. Task must have at least one deliverable to be marked as done.' },
-          { status: 400 }
         );
       }
     }
@@ -211,7 +193,21 @@ export async function DELETE(
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
 
+    // Delete or nullify related records first (foreign key constraints)
+    // Note: task_activities and task_deliverables have ON DELETE CASCADE
+    run('DELETE FROM openclaw_sessions WHERE task_id = ?', [id]);
+    run('DELETE FROM events WHERE task_id = ?', [id]);
+    // Conversations reference tasks - nullify or delete
+    run('UPDATE conversations SET task_id = NULL WHERE task_id = ?', [id]);
+
+    // Now delete the task (cascades to task_activities and task_deliverables)
     run('DELETE FROM tasks WHERE id = ?', [id]);
+
+    // Broadcast deletion via SSE
+    broadcast({
+      type: 'task_deleted',
+      payload: { id },
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

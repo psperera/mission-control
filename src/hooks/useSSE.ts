@@ -7,15 +7,18 @@
 
 import { useEffect, useRef } from 'react';
 import { useMissionControl } from '@/lib/store';
-import type { SSEEvent, Task, TaskActivity, TaskDeliverable } from '@/lib/types';
+import { debug } from '@/lib/debug';
+import type { SSEEvent, Task } from '@/lib/types';
 
 export function useSSE() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
-  const { 
-    updateTask, 
+  const {
+    updateTask,
     addTask,
     setIsOnline,
+    selectedTask,
+    setSelectedTask,
   } = useMissionControl();
 
   useEffect(() => {
@@ -27,13 +30,13 @@ export function useSSE() {
       }
 
       isConnecting = true;
-      console.log('[SSE] Connecting to event stream...');
+      debug.sse('Connecting to event stream...');
 
       const eventSource = new EventSource('/api/events/stream');
       eventSourceRef.current = eventSource;
 
       eventSource.onopen = () => {
-        console.log('[SSE] Connected');
+        debug.sse('Connected');
         setIsOnline(true);
         isConnecting = false;
         // Clear any pending reconnect
@@ -50,39 +53,51 @@ export function useSSE() {
           }
 
           const sseEvent: SSEEvent = JSON.parse(event.data);
-          console.log('[SSE] Received event:', sseEvent.type);
+          debug.sse(`Received event: ${sseEvent.type}`, sseEvent.payload);
 
           switch (sseEvent.type) {
             case 'task_created':
+              debug.sse('Adding new task to store', { id: (sseEvent.payload as Task).id });
               addTask(sseEvent.payload as Task);
               break;
 
             case 'task_updated':
-              updateTask(sseEvent.payload as Task);
+              const incomingTask = sseEvent.payload as Task;
+              debug.sse('Task update received', {
+                id: incomingTask.id,
+                status: incomingTask.status,
+                title: incomingTask.title
+              });
+              updateTask(incomingTask);
+
+              // Update selected task if viewing this task (for modal)
+              if (selectedTask?.id === incomingTask.id) {
+                debug.sse('Also updating selectedTask for modal');
+                setSelectedTask(incomingTask);
+              }
               break;
 
             case 'activity_logged':
+              debug.sse('Activity logged', sseEvent.payload);
               // Activities are fetched when task detail is opened
-              // We could optionally update a live feed here
-              console.log('[SSE] Activity logged:', sseEvent.payload);
               break;
 
             case 'deliverable_added':
+              debug.sse('Deliverable added', sseEvent.payload);
               // Deliverables are fetched when task detail is opened
-              console.log('[SSE] Deliverable added:', sseEvent.payload);
               break;
 
             case 'agent_spawned':
-              console.log('[SSE] Agent spawned:', sseEvent.payload);
+              debug.sse('Agent spawned', sseEvent.payload);
               // Will trigger re-fetch of sub-agent count
               break;
 
             case 'agent_completed':
-              console.log('[SSE] Agent completed:', sseEvent.payload);
+              debug.sse('Agent completed', sseEvent.payload);
               break;
 
             default:
-              console.warn('[SSE] Unknown event type:', sseEvent);
+              debug.sse('Unknown event type', sseEvent);
           }
         } catch (error) {
           console.error('[SSE] Error parsing event:', error);
@@ -90,17 +105,17 @@ export function useSSE() {
       };
 
       eventSource.onerror = (error) => {
-        console.error('[SSE] Connection error:', error);
+        debug.sse('Connection error', error);
         setIsOnline(false);
         isConnecting = false;
-        
+
         // Close the connection
         eventSource.close();
         eventSourceRef.current = null;
 
         // Attempt reconnection after 5 seconds
         reconnectTimeoutRef.current = setTimeout(() => {
-          console.log('[SSE] Attempting to reconnect...');
+          debug.sse('Attempting to reconnect...');
           connect();
         }, 5000);
       };
@@ -112,7 +127,7 @@ export function useSSE() {
     // Cleanup on unmount
     return () => {
       if (eventSourceRef.current) {
-        console.log('[SSE] Disconnecting...');
+        debug.sse('Disconnecting...');
         eventSourceRef.current.close();
         eventSourceRef.current = null;
       }
@@ -120,5 +135,5 @@ export function useSSE() {
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [addTask, updateTask, setIsOnline]);
+  }, [addTask, updateTask, setIsOnline, selectedTask, setSelectedTask]);
 }

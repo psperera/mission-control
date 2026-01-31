@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { broadcast } from '@/lib/events';
+import { existsSync } from 'fs';
+import path from 'path';
 import type { TaskDeliverable } from '@/lib/types';
 
 /**
@@ -58,6 +60,18 @@ export async function POST(
       );
     }
 
+    // Validate file existence for file deliverables
+    let fileExists = true;
+    let normalizedPath = path;
+    if (deliverable_type === 'file' && path) {
+      // Expand tilde
+      normalizedPath = path.replace(/^~/, process.env.HOME || '');
+      fileExists = existsSync(normalizedPath);
+      if (!fileExists) {
+        console.warn(`[DELIVERABLE] Warning: File does not exist: ${normalizedPath}`);
+      }
+    }
+
     const db = getDb();
     const id = crypto.randomUUID();
 
@@ -86,6 +100,17 @@ export async function POST(
       type: 'deliverable_added',
       payload: deliverable,
     });
+
+    // Return with warning if file doesn't exist
+    if (deliverable_type === 'file' && !fileExists) {
+      return NextResponse.json(
+        {
+          ...deliverable,
+          warning: `File does not exist at path: ${normalizedPath}. Please create the file.`
+        },
+        { status: 201 }
+      );
+    }
 
     return NextResponse.json(deliverable, { status: 201 });
   } catch (error) {

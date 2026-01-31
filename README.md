@@ -172,11 +172,30 @@ Awareness of other agents in the system - who they are, how to collaborate.
 - `GET /api/openclaw/sessions/[id]` - Get session details
 - `POST /api/openclaw/sessions/[id]` - Send message to session
 - `GET /api/openclaw/sessions/[id]/history` - Get session history
+- `PATCH /api/openclaw/sessions/[id]` - Update session (mark complete)
+- `DELETE /api/openclaw/sessions/[id]` - Delete a session
 
 ### Agent ↔ OpenClaw Linking
 - `GET /api/agents/[id]/openclaw` - Get agent's OpenClaw session
 - `POST /api/agents/[id]/openclaw` - Link agent to OpenClaw
 - `DELETE /api/agents/[id]/openclaw` - Unlink agent from OpenClaw
+
+### Task Activities & Deliverables
+- `GET /api/tasks/[id]/activities` - List task activities
+- `POST /api/tasks/[id]/activities` - Log activity
+- `GET /api/tasks/[id]/deliverables` - List deliverables
+- `POST /api/tasks/[id]/deliverables` - Add deliverable
+- `GET /api/tasks/[id]/subagent` - List sub-agents
+- `POST /api/tasks/[id]/subagent` - Register sub-agent
+
+### Files (for remote agents)
+- `POST /api/files/upload` - Upload file from remote agent
+- `GET /api/files/upload` - Get upload endpoint info
+- `POST /api/files/reveal` - Open file in Finder
+- `GET /api/files/preview` - Preview HTML file
+
+### Webhooks
+- `POST /api/webhooks/agent-completion` - Agent completion notification
 
 ## OpenClaw WebSocket Protocol
 
@@ -317,6 +336,39 @@ These approaches were tried and **do not work**:
 | `cli` | `cli` |
 | `clawdbot-control-ui` | `ui` |
 
+## Cross-Machine Orchestration
+
+Mission Control supports orchestration across multiple machines. For example:
+- **Mission Control** runs on your M4 Mac (server)
+- **Charlie** (orchestrating LLM) runs on an M1 Mac (client)
+
+### How It Works
+
+Since Charlie can't directly write to the M4's filesystem, use the **File Upload API**:
+
+```bash
+# 1. Charlie uploads file content via HTTP
+curl -X POST http://192.168.0.216:3000/api/files/upload \
+  -H "Content-Type: application/json" \
+  -d '{
+    "relativePath": "project-name/index.html",
+    "content": "<!DOCTYPE html>..."
+  }'
+
+# Response: {"path": "/Users/chris/mission-control-projects/project-name/index.html", ...}
+
+# 2. Register the deliverable using the returned path
+curl -X POST http://192.168.0.216:3000/api/tasks/{TASK_ID}/deliverables \
+  -H "Content-Type: application/json" \
+  -d '{
+    "deliverable_type": "file",
+    "title": "Homepage",
+    "path": "/Users/chris/mission-control-projects/project-name/index.html"
+  }'
+```
+
+See `HEARTBEAT.md` for full orchestration instructions that can be injected into your LLM's context.
+
 ## Charlie (or your Master Agents Name, Charlie is mine) - The Master Orchestrator 🦞
 
 Charlie is the default master agent who coordinates all other agents. Charlie:
@@ -342,8 +394,17 @@ npm start
 # Run database migrations
 npm run db:migrate
 
-# Seed database
+# Seed database with sample data
 npm run db:seed
+
+# Backup current database state
+npm run db:backup
+
+# Restore database from backup
+npm run db:restore
+
+# Full reset (delete + reseed)
+npm run db:reset
 
 # Lint code
 npm run lint

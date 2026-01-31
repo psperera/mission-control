@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryOne, run } from '@/lib/db';
 import { getOpenClawClient } from '@/lib/openclaw/client';
 import { broadcast } from '@/lib/events';
+import { getProjectsPath, getMissionControlUrl } from '@/lib/config';
 import type { Task, Agent, OpenClawSession } from '@/lib/types';
 
 interface RouteParams {
@@ -110,6 +111,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       urgent: '🔴'
     }[task.priority] || '⚪';
 
+    // Get project path for deliverables
+    const projectsPath = getProjectsPath();
+    const projectDir = task.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const taskProjectDir = `${projectsPath}/${projectDir}`;
+    const missionControlUrl = getMissionControlUrl();
+
     const taskMessage = `${priorityEmoji} **NEW TASK ASSIGNED**
 
 **Title:** ${task.title}
@@ -118,7 +125,18 @@ ${task.description ? `**Description:** ${task.description}\n` : ''}
 ${task.due_date ? `**Due:** ${task.due_date}\n` : ''}
 **Task ID:** ${task.id}
 
-Please work on this task. When complete, reply with:
+**OUTPUT DIRECTORY:** ${taskProjectDir}
+Create this directory and save all deliverables there.
+
+**IMPORTANT:** After completing work, you MUST call these APIs:
+1. Log activity: POST ${missionControlUrl}/api/tasks/${task.id}/activities
+   Body: {"activity_type": "completed", "message": "Description of what was done"}
+2. Register deliverable: POST ${missionControlUrl}/api/tasks/${task.id}/deliverables
+   Body: {"deliverable_type": "file", "title": "File name", "path": "${taskProjectDir}/filename.html"}
+3. Update status: PATCH ${missionControlUrl}/api/tasks/${task.id}
+   Body: {"status": "review"}
+
+When complete, reply with:
 \`TASK_COMPLETE: [brief summary of what you did]\`
 
 If you need help or clarification, ask me (Charlie).`;
