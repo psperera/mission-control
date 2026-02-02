@@ -174,7 +174,7 @@ export default function MissionControlPage() {
         <AgentsSidebar />
 
         {/* Main Content Area */}
-        <div className="flex-1 flex">
+        <div className="flex-1 flex min-h-0 overflow-hidden">
           {/* Mission Queue */}
           <div className="flex-1 flex flex-col">
             <MissionQueue />
@@ -192,18 +192,18 @@ export default function MissionControlPage() {
 
           {/* Chat Panel (conditionally shown) */}
           {showChat && (
-            <div className="w-96 border-l border-mc-border relative flex flex-col bg-mc-bg">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-mc-border bg-mc-bg-secondary font-mono text-xs">
+            <div className="w-96 h-full border-l border-mc-border flex flex-col bg-mc-bg">
+              <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-b border-mc-border bg-mc-bg-secondary font-mono text-xs">
                 <span className="text-green-400">⚡ chat</span>
                 <button
                   onClick={() => setShowChat(false)}
-                  className="text-mc-text-secondary hover:text-red-400"
+                  className="text-mc-text-secondary hover:text-red-400 px-2"
                   title="Close (Esc)"
                 >
-                  ✕
+                  ✕ close
                 </button>
               </div>
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-hidden">
                 <ChatPanel />
               </div>
             </div>
