@@ -38,6 +38,9 @@ CREATE TABLE IF NOT EXISTS conversations (
   title TEXT,
   type TEXT DEFAULT 'direct' CHECK (type IN ('direct', 'group', 'task')),
   task_id TEXT REFERENCES tasks(id),
+  participant1_id TEXT REFERENCES agents(id),
+  participant2_id TEXT REFERENCES agents(id),
+  metadata TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -86,9 +89,11 @@ CREATE TABLE IF NOT EXISTS openclaw_sessions (
   agent_id TEXT REFERENCES agents(id),
   openclaw_session_id TEXT NOT NULL,
   channel TEXT,
+  peer TEXT,
   status TEXT DEFAULT 'active',
   session_type TEXT DEFAULT 'persistent',
   task_id TEXT REFERENCES tasks(id),
+  metadata TEXT,
   ended_at TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))

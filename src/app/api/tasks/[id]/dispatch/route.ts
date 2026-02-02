@@ -65,8 +65,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get or create OpenClaw session for this agent
+    // Prioritize telegram sessions, then webchat, then mission-control
     let session = queryOne<OpenClawSession>(
-      'SELECT * FROM openclaw_sessions WHERE agent_id = ? AND status = ?',
+      `SELECT * FROM openclaw_sessions
+       WHERE agent_id = ? AND status = ?
+       ORDER BY
+         CASE channel
+           WHEN 'telegram' THEN 1
+           WHEN 'webchat' THEN 2
+           ELSE 3
+         END
+       LIMIT 1`,
       [agent.id, 'active']
     );
 
@@ -141,12 +150,17 @@ When complete, reply with:
 
 If you need help or clarification, ask me (Charlie).`;
 
-    // Send message to agent's session using sessions_send
+    // Send message to agent's session
     try {
-      // Use the label from openclaw_session_id for routing
-      await client.call('sessions.send', {
-        label: session.openclaw_session_id,
-        message: taskMessage
+      // Use the 'send' method to dispatch message via OpenClaw Gateway
+      // Target is based on session channel (telegram, webchat, etc.)
+      const target = session.peer || session.openclaw_session_id;
+
+      await client.call('send', {
+        to: target,
+        message: taskMessage,
+        channel: session.channel || 'telegram',
+        idempotencyKey: `task-dispatch-${task.id}-${Date.now()}`
       });
 
       // Update task status to in_progress

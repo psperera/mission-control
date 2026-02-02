@@ -252,10 +252,19 @@ export class OpenClawClient extends EventEmitter {
   }
 
   async sendMessage(sessionId: string, content: string): Promise<void> {
-    await this.call('sessions.send', { session_id: sessionId, content });
+    // Use the 'send' method to dispatch message via OpenClaw Gateway
+    const idempotencyKey = `msg-${sessionId}-${Date.now()}`;
+    await this.call('send', { to: sessionId, message: content, idempotencyKey });
+  }
+
+  // Send message to a specific target (telegram ID, etc.)
+  async send(to: string, message: string, channel?: string, idempotencyKey?: string): Promise<void> {
+    const key = idempotencyKey || `send-${to}-${Date.now()}`;
+    await this.call('send', { to, message, channel, idempotencyKey: key });
   }
 
   async createSession(channel: string, peer?: string): Promise<OpenClawSessionInfo> {
+    // Note: Sessions are typically created automatically when sending messages
     return this.call<OpenClawSessionInfo>('sessions.create', { channel, peer });
   }
 
