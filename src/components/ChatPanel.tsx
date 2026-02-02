@@ -134,10 +134,12 @@ export function ChatPanel() {
     if (linkedAgent) {
       setIsSendingToOpenClaw(true);
       try {
+        // Use the session's channel (telegram or webchat)
+        const channel = linkedAgent.session.channel || 'webchat';
         const res = await fetch(`/api/openclaw/sessions/${linkedAgent.session.openclaw_session_id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: messageContent }),
+          body: JSON.stringify({ content: messageContent, channel }),
         });
 
         if (res.ok) {
@@ -224,75 +226,108 @@ export function ChatPanel() {
 
   return (
     <div className="flex flex-col h-full bg-mc-bg-secondary">
-      {/* Chat Header */}
-      <div className="p-3 border-b border-mc-border flex items-center gap-3">
+      {/* CLI-style Header */}
+      <div className="px-3 py-2 border-b border-mc-border flex items-center gap-3 font-mono text-sm bg-mc-bg-secondary">
         <button
           onClick={() => setShowConversationList(true)}
-          className="p-1 hover:bg-mc-bg-tertiary rounded"
+          className="text-mc-text-secondary hover:text-mc-text"
+          title="Back to list"
         >
-          <Users className="w-5 h-5" />
+          ←
         </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium text-sm">
-              {currentConversation?.title || 'Conversation'}
-            </h3>
-            {linkedAgentInfo && (
-              <span className="flex items-center gap-1 text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
+        <div className="flex-1 flex items-center gap-2">
+          <span className="text-mc-text-tertiary">#</span>
+          <span className="text-mc-text">
+            {currentConversation?.title?.toLowerCase().replace(/\s+/g, '-') || 'chat'}
+          </span>
+          {linkedAgentInfo && (
+            <>
+              <span className="text-mc-text-tertiary">|</span>
+              <span className="text-green-400 flex items-center gap-1">
                 <Zap className="w-3 h-3" />
-                OpenClaw
+                {linkedAgentInfo.session.channel || 'webchat'}
               </span>
-            )}
-          </div>
-          <p className="text-xs text-mc-text-secondary">
-            {currentConversation?.participants?.map((p) => p.name).join(', ')}
-          </p>
+            </>
+          )}
+        </div>
+        <div className="text-mc-text-tertiary text-xs">
+          {currentConversation?.participants?.map((p) => p.name.toLowerCase()).join(', ')}
         </div>
         <button
           onClick={() => {
             setCurrentConversation(null);
             setShowConversationList(true);
           }}
-          className="p-1 hover:bg-mc-bg-tertiary rounded"
+          className="text-mc-text-secondary hover:text-red-400"
+          title="Close"
         >
-          <X className="w-5 h-5" />
+          ×
         </button>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      {/* Messages - CLI style */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-4 font-mono bg-mc-bg">
+        {displayMessages.length === 0 && (
+          <div className="text-mc-text-tertiary text-sm">
+            {linkedAgentInfo ? (
+              <>
+                <div className="text-green-400/60">// connected to {linkedAgentInfo.agent.name.toLowerCase()}</div>
+                <div className="text-green-400/60">// channel: {linkedAgentInfo.session.channel || 'webchat'}</div>
+                <div className="mt-2">type a message to begin...</div>
+              </>
+            ) : (
+              <>
+                <div className="text-blue-400/60">// local conversation</div>
+                <div className="mt-2">select a sender and type a message...</div>
+              </>
+            )}
+          </div>
+        )}
         {displayMessages.map((message) => (
           <MessageBubble key={message.id} message={message} isOpenClaw={!!linkedAgentInfo} />
         ))}
-        {displayMessages.length === 0 && linkedAgentInfo && (
-          <div className="text-center py-8 text-mc-text-secondary text-sm">
-            Send a message to start chatting with {linkedAgentInfo.agent.name} via OpenClaw
-          </div>
-        )}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <form onSubmit={handleSendMessage} className="p-3 border-t border-mc-border">
-        {/* OpenClaw indicator */}
-        {linkedAgentInfo && (
-          <div className="mb-2 flex items-center gap-2 text-xs text-green-400">
-            <Zap className="w-3 h-3" />
-            <span>Messages will be sent to {linkedAgentInfo.agent.name} via OpenClaw Gateway</span>
-          </div>
-        )}
+      {/* CLI-style Input */}
+      <form onSubmit={handleSendMessage} className="border-t border-mc-border bg-mc-bg">
+        {/* Channel indicator */}
+        <div className="px-3 py-1.5 border-b border-mc-border/50 flex items-center gap-2 text-xs font-mono">
+          {linkedAgentInfo ? (
+            <>
+              <span className="text-green-400">⚡ openclaw</span>
+              <span className="text-mc-text-tertiary">→</span>
+              <span className="text-yellow-400">{linkedAgentInfo.agent.name.toLowerCase()}</span>
+              <span className="text-mc-text-tertiary ml-auto">
+                {linkedAgentInfo.session.channel === 'telegram' ? '📱 telegram' : '💬 webchat'}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-blue-400">💬 local</span>
+              {selectedSender && (
+                <>
+                  <span className="text-mc-text-tertiary">as</span>
+                  <span className="text-cyan-400">
+                    {agents.find(a => a.id === selectedSender)?.name.toLowerCase()}
+                  </span>
+                </>
+              )}
+            </>
+          )}
+        </div>
 
-        {/* Sender Selection - hidden for OpenClaw convos since it's always "you" */}
+        {/* Sender Selection - hidden for OpenClaw convos */}
         {!linkedAgentInfo && (
-          <div className="mb-2">
+          <div className="px-3 py-2 border-b border-mc-border/50">
             <select
               value={selectedSender}
               onChange={(e) => setSelectedSender(e.target.value)}
-              className="w-full bg-mc-bg border border-mc-border rounded px-3 py-1.5 text-sm focus:outline-none focus:border-mc-accent"
+              className="w-full bg-transparent border-none text-sm font-mono text-mc-text focus:outline-none"
             >
-              <option value="">Select who&apos;s speaking...</option>
+              <option value="" className="bg-mc-bg">select sender...</option>
               {agents.map((agent) => (
-                <option key={agent.id} value={agent.id}>
+                <option key={agent.id} value={agent.id} className="bg-mc-bg">
                   {agent.avatar_emoji} {agent.name}
                 </option>
               ))}
@@ -300,28 +335,29 @@ export function ChatPanel() {
           </div>
         )}
 
-        <div className="flex gap-2">
+        {/* CLI-style input */}
+        <div className="flex items-center px-3 py-2 font-mono">
+          <span className="text-green-400 mr-2">{'>'}</span>
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder={linkedAgentInfo ? `Message ${linkedAgentInfo.agent.name}...` : 'Type a message...'}
-            className="flex-1 bg-mc-bg border border-mc-border rounded px-3 py-2 text-sm focus:outline-none focus:border-mc-accent"
+            placeholder={linkedAgentInfo ? 'type message...' : 'type message...'}
+            className="flex-1 bg-transparent border-none text-sm text-mc-text focus:outline-none placeholder:text-mc-text-tertiary"
             disabled={isSendingToOpenClaw}
+            autoFocus
           />
-          <button
-            type="submit"
-            disabled={!newMessage.trim() || (!linkedAgentInfo && !selectedSender) || isSendingToOpenClaw}
-            className="px-4 py-2 bg-mc-accent text-mc-bg rounded hover:bg-mc-accent/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            {isSendingToOpenClaw ? (
-              <div className="w-4 h-4 border-2 border-mc-bg border-t-transparent rounded-full animate-spin" />
-            ) : linkedAgentInfo ? (
-              <Zap className="w-4 h-4" />
-            ) : (
+          {isSendingToOpenClaw ? (
+            <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <button
+              type="submit"
+              disabled={!newMessage.trim() || (!linkedAgentInfo && !selectedSender)}
+              className="text-mc-text-secondary hover:text-green-400 disabled:opacity-30 disabled:hover:text-mc-text-secondary transition-colors"
+            >
               <Send className="w-4 h-4" />
-            )}
-          </button>
+            </button>
+          )}
         </div>
       </form>
     </div>
@@ -333,12 +369,14 @@ function MessageBubble({ message, isOpenClaw }: { message: Message; isOpenClaw?:
 
   // Parse metadata to check if this is an OpenClaw message and get role
   let openclawRole: string | null = null;
+  let messageChannel: string | null = null;
   if (message.metadata) {
     try {
       const meta = JSON.parse(message.metadata);
       if (meta.source === 'openclaw') {
         openclawRole = meta.role;
       }
+      messageChannel = meta.channel;
     } catch {
       // Ignore parse errors
     }
@@ -347,26 +385,33 @@ function MessageBubble({ message, isOpenClaw }: { message: Message; isOpenClaw?:
   // For OpenClaw user messages (your messages), show differently
   const isYourMessage = openclawRole === 'user';
 
+  // CLI-style formatting
+  const timestamp = new Date(message.created_at).toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+
+  const senderName = isYourMessage ? 'you' : (sender?.name?.toLowerCase() || 'agent');
+  const channelIndicator = messageChannel === 'telegram' ? '📱' : (isOpenClaw ? '⚡' : '💬');
+
   return (
-    <div className={`flex items-start gap-2 animate-slide-in ${isYourMessage ? 'flex-row-reverse' : ''}`}>
-      <div className="text-xl flex-shrink-0">
-        {isYourMessage ? '👤' : (sender?.avatar_emoji || '🤖')}
+    <div className="font-mono text-sm animate-slide-in group">
+      {/* CLI-style header */}
+      <div className="flex items-center gap-2 text-mc-text-secondary text-xs mb-1">
+        <span className="text-mc-text-tertiary">{timestamp}</span>
+        <span className={`${isYourMessage ? 'text-blue-400' : 'text-green-400'}`}>
+          {channelIndicator} {senderName}
+        </span>
+        {isOpenClaw && !isYourMessage && (
+          <span className="text-yellow-500/60">via openclaw</span>
+        )}
       </div>
-      <div className={`flex-1 min-w-0 ${isYourMessage ? 'text-right' : ''}`}>
-        <div className={`flex items-baseline gap-2 ${isYourMessage ? 'justify-end' : ''}`}>
-          <span className="font-medium text-sm">
-            {isYourMessage ? 'You' : (sender?.name || 'Unknown')}
-          </span>
-          {isOpenClaw && !isYourMessage && (
-            <Zap className="w-3 h-3 text-green-400" />
-          )}
-          <span className="text-xs text-mc-text-secondary">
-            {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
-          </span>
-        </div>
-        <p className={`text-sm mt-1 text-mc-text whitespace-pre-wrap ${isYourMessage ? 'bg-mc-accent/20 rounded-lg px-3 py-2 inline-block' : ''}`}>
+      {/* Message content - CLI style */}
+      <div className={`pl-4 border-l-2 ${isYourMessage ? 'border-blue-500/30' : 'border-green-500/30'}`}>
+        <pre className="text-mc-text whitespace-pre-wrap break-words leading-relaxed">
           {message.content}
-        </p>
+        </pre>
       </div>
     </div>
   );

@@ -50,7 +50,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { content } = body;
+    const { content, channel } = body;
 
     if (!content) {
       return NextResponse.json(
@@ -72,11 +72,21 @@ export async function POST(request: Request, { params }: RouteParams) {
       }
     }
 
-    // Prefix message with [Mission Control] so Charlie knows the source
+    // Prefix message with [Mission Control] so agent knows the source
     const prefixedContent = `[Mission Control] ${content}`;
-    await client.sendMessage(id, prefixedContent);
 
-    return NextResponse.json({ success: true });
+    // Use the send method with proper parameters
+    // Channel defaults to webchat for direct chat, or use provided channel
+    const targetChannel = channel || 'webchat';
+
+    await client.call('send', {
+      to: id,
+      message: prefixedContent,
+      channel: targetChannel,
+      idempotencyKey: `chat-${id}-${Date.now()}`
+    });
+
+    return NextResponse.json({ success: true, channel: targetChannel });
   } catch (error) {
     console.error('Failed to send message to OpenClaw session:', error);
     return NextResponse.json(
