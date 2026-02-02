@@ -2,29 +2,56 @@
 
 AI Agent Orchestration Dashboard for OpenClaw.
 
-![Mission Control](docs/images/mission_control.png)
+![Mission Control Dashboard](docs/images/mission_control.png)
+
+*Dashboard showing 4 active agents (Orchi, Librarian, Scholar, Scout) working on research tasks with the Kanban mission queue (INBOX → ASSIGNED → IN PROGRESS → TESTING → REVIEW) and real-time Live Feed.*
 
 ## Features
 
 - **Agent Management**: Create, configure, and monitor AI agents with custom personalities (SOUL.md, USER.md, AGENTS.md)
-- **Mission Queue**: Kanban-style task board with drag-and-drop (INBOX → ASSIGNED → IN PROGRESS → REVIEW → DONE)
+- **Mission Queue**: Kanban-style task board with drag-and-drop (INBOX → ASSIGNED → IN PROGRESS → TESTING → REVIEW → DONE)
 - **Automated Task Dispatch**: Tasks automatically route to agents' OpenClaw sessions when assigned
 - **Completion Detection**: Agents report completion via TASK_COMPLETE message, auto-moves to review
+- **Research Integrity Guard**: MCP server for automated quality validation during TESTING phase
+- **AI Slop Detection**: Automatically detects and flags generic AI-generated filler content
 - **Quality Control**: Only master agent (Charlie) can approve tasks from review to done
-- **Agent Chat**: Real-time agent-to-agent conversations - watch your team collaborate
+- **CLI Chat Panel**: Terminal-style chat interface for direct agent communication (Cmd/Ctrl+K)
+- **Telegram Integration**: Connect agents to Telegram for multi-channel communication
 - **Live Feed**: Real-time event stream showing all activity
-- **OpenClaw Integration**: Connects to your local OpenClaw Gateway
+- **OpenClaw Integration**: Connects to your local OpenClaw Gateway via WebSocket
 
 ## How It Works
 
 ### The Automated Workflow
 
 1. **You assign a task** → Drag task to agent in ASSIGNED column
-2. **System auto-dispatches** → Task details sent to agent's OpenClaw session
+2. **System auto-dispatches** → Task details sent to agent's OpenClaw session (via Telegram or webchat)
 3. **Agent works** → Task moves to IN PROGRESS, agent status becomes "working"
 4. **Agent completes** → Agent replies `TASK_COMPLETE: [summary]`
-5. **Auto-review** → Task moves to REVIEW, agent returns to "standby"
-6. **Charlie approves** → Master agent reviews work, moves to DONE
+5. **Auto-testing** → Task moves to TESTING, Research Integrity Guard validates deliverables
+6. **Quality check** → If validation fails, task returns to IN PROGRESS for rework
+7. **Review** → If validation passes, task moves to REVIEW
+8. **Charlie approves** → Master agent reviews work, moves to DONE
+
+### Research Integrity Guard (Testing Phase)
+
+The Research Integrity Guard is an MCP server that validates outputs during the TESTING phase:
+
+**What it detects:**
+- **AI Slop**: Generic filler phrases like "delve", "leverage", "tapestry", "paradigm", "game-changer"
+- **Low vocabulary diversity**: Repetitive or limited word usage
+- **Missing citations**: Research without proper sources
+- **Content quality**: Word count, uniqueness, structure
+
+**Auto-rework loop:**
+When validation fails, tasks automatically return to IN PROGRESS with feedback for the agent to address issues.
+
+```bash
+# Manually trigger validation
+curl -X POST http://localhost:3001/api/tasks/{taskId}/validate \
+  -H "Content-Type: application/json" \
+  -d '{"autoRework": true}'
+```
 
 ### Agent Protocol
 
@@ -102,26 +129,34 @@ mission-control/
 ├── src/
 │   ├── app/                    # Next.js App Router
 │   │   ├── api/               # API routes
-│   │   │   ├── agents/        # Agent CRUD
-│   │   │   ├── tasks/         # Task CRUD
+│   │   │   ├── agents/        # Agent CRUD + OpenClaw linking
+│   │   │   ├── tasks/         # Task CRUD + dispatch + validation
 │   │   │   ├── conversations/ # Chat/conversations
 │   │   │   ├── events/        # Live feed events
-│   │   │   └── openclaw/      # OpenClaw integration
+│   │   │   ├── openclaw/      # OpenClaw Gateway integration
+│   │   │   ├── webhooks/      # Telegram webhook handler
+│   │   │   └── files/         # Cross-machine file handling
 │   │   ├── layout.tsx
 │   │   └── page.tsx           # Main dashboard
 │   ├── components/            # React components
 │   │   ├── Header.tsx
 │   │   ├── AgentsSidebar.tsx
 │   │   ├── AgentModal.tsx
-│   │   ├── MissionQueue.tsx
+│   │   ├── MissionQueue.tsx   # Kanban board with TESTING column
 │   │   ├── TaskModal.tsx
-│   │   ├── ChatPanel.tsx
+│   │   ├── ChatPanel.tsx      # CLI-style chat (Cmd/Ctrl+K)
 │   │   └── LiveFeed.tsx
 │   └── lib/
 │       ├── db/                # SQLite database
-│       ├── openclaw/          # OpenClaw client
+│       ├── openclaw/          # OpenClaw WebSocket client
 │       ├── store.ts           # Zustand state
 │       └── types.ts           # TypeScript types
+├── mcp-servers/
+│   └── research-integrity-guard/  # MCP server for quality validation
+│       ├── server.js          # AI slop detection + validation
+│       └── package.json
+├── .claude/
+│   └── mcp.json               # MCP server configuration
 ├── mission-control.db         # SQLite database (created on seed)
 └── package.json
 ```
@@ -187,6 +222,14 @@ Awareness of other agents in the system - who they are, how to collaborate.
 - `POST /api/tasks/[id]/deliverables` - Add deliverable
 - `GET /api/tasks/[id]/subagent` - List sub-agents
 - `POST /api/tasks/[id]/subagent` - Register sub-agent
+
+### Task Validation (Research Integrity Guard)
+- `POST /api/tasks/[id]/validate` - Validate task deliverables for quality
+- `GET /api/tasks/[id]/validate` - Get last validation result
+
+### Webhooks
+- `POST /api/webhooks/telegram` - Receive Telegram messages via OpenClaw
+- `POST /api/webhooks/agent-completion` - Agent completion notification
 
 ### Files (for remote agents)
 - `POST /api/files/upload` - Upload file from remote agent

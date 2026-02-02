@@ -1,0 +1,22 @@
+{
+  "name": "research-integrity-guard",
+  "version": "1.0.0",
+  "description": "MCP server for validating research output quality and removing AI slop",
+  "type": "module",
+  "main": "server.js",
+  "bin": {
+    "research-integrity-guard": "./server.js"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "research",
+    "validation",
+    "ai-slop"
+  ]
+}

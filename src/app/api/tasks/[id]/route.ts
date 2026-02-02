@@ -85,8 +85,9 @@ export async function PATCH(
       values.push(body.due_date);
     }
 
-    // Track if we need to dispatch task
+    // Track if we need to dispatch task or trigger validation
     let shouldDispatch = false;
+    let shouldValidate = false;
 
     // Handle status change
     if (body.status !== undefined && body.status !== existing.status) {
@@ -96,6 +97,11 @@ export async function PATCH(
       // Auto-dispatch when moving to assigned
       if (body.status === 'assigned' && existing.assigned_agent_id) {
         shouldDispatch = true;
+      }
+
+      // Auto-validate when moving to testing
+      if (body.status === 'testing') {
+        shouldValidate = true;
       }
 
       // Log status change event
@@ -170,6 +176,18 @@ export async function PATCH(
         headers: { 'Content-Type': 'application/json' }
       }).catch(err => {
         console.error('Auto-dispatch failed:', err);
+      });
+    }
+
+    // Trigger auto-validation when moving to testing (Research Integrity Guard)
+    if (shouldValidate) {
+      const missionControlUrl = getMissionControlUrl();
+      fetch(`${missionControlUrl}/api/tasks/${id}/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ autoRework: true }) // Auto-send back if validation fails
+      }).catch(err => {
+        console.error('Auto-validation failed:', err);
       });
     }
 

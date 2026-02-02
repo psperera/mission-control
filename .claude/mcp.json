@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "research-integrity-guard": {
+      "command": "node",
+      "args": ["mcp-servers/research-integrity-guard/server.js"],
+      "cwd": "/Users/paulperera/dev/mission-control",
+      "description": "Validates research outputs for quality, AI slop detection, and integrity during TESTING phase"
+    }
+  }
+}

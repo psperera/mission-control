@@ -174,9 +174,9 @@ export default function MissionControlPage() {
         <AgentsSidebar />
 
         {/* Main Content Area */}
-        <div className="flex-1 flex min-h-0 overflow-hidden">
+        <div className="flex-1 flex min-w-0">
           {/* Mission Queue */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             <MissionQueue />
 
             {/* Chat Toggle - positioned above Live Feed */}
@@ -192,8 +192,8 @@ export default function MissionControlPage() {
 
           {/* Chat Panel (conditionally shown) */}
           {showChat && (
-            <div className="w-96 h-full border-l border-mc-border flex flex-col bg-mc-bg">
-              <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-b border-mc-border bg-mc-bg-secondary font-mono text-xs">
+            <div className="w-96 flex-shrink-0 border-l border-mc-border flex flex-col bg-mc-bg-secondary">
+              <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-b border-mc-border bg-mc-bg font-mono text-xs">
                 <span className="text-green-400">⚡ chat</span>
                 <button
                   onClick={() => setShowChat(false)}
@@ -203,7 +203,7 @@ export default function MissionControlPage() {
                   ✕ close
                 </button>
               </div>
-              <div className="flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-auto">
                 <ChatPanel />
               </div>
             </div>

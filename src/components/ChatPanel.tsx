@@ -124,9 +124,13 @@ export function ChatPanel() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !currentConversation || !selectedSender) return;
+    if (!newMessage.trim() || !currentConversation) return;
 
     const linkedAgent = getOpenClawLinkedAgent();
+
+    // For non-OpenClaw conversations, require a sender to be selected
+    if (!linkedAgent && !selectedSender) return;
+
     const messageContent = newMessage;
     setNewMessage('');
 
@@ -225,7 +229,7 @@ export function ChatPanel() {
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-mc-bg-secondary">
+    <div className="flex flex-col h-full bg-mc-bg-secondary">
       {/* CLI-style Header */}
       <div className="px-3 py-2 border-b border-mc-border flex items-center gap-3 font-mono text-sm bg-mc-bg-secondary">
         <button
@@ -464,7 +468,7 @@ function ConversationList({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-mc-bg-secondary">
+    <div className="flex flex-col h-full bg-mc-bg-secondary">
       <div className="p-3 border-b border-mc-border flex items-center justify-between">
         <h3 className="font-medium text-sm">Conversations</h3>
         <button
