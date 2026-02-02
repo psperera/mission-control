@@ -26,6 +26,21 @@ export default function MissionControlPage() {
 
   const [showChat, setShowChat] = useState(false);
 
+  // Keyboard shortcut to toggle chat (Cmd/Ctrl + K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowChat(prev => !prev);
+      }
+      if (e.key === 'Escape' && showChat) {
+        setShowChat(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showChat]);
+
   // Connect to SSE for real-time updates
   useSSE();
 
@@ -164,27 +179,33 @@ export default function MissionControlPage() {
           <div className="flex-1 flex flex-col">
             <MissionQueue />
 
-            {/* Chat Toggle */}
+            {/* Chat Toggle - positioned above Live Feed */}
             {!showChat && (
               <button
                 onClick={() => setShowChat(true)}
-                className="fixed bottom-4 right-96 px-4 py-2 bg-mc-accent text-mc-bg rounded-full shadow-lg hover:bg-mc-accent/90 flex items-center gap-2"
+                className="fixed bottom-6 right-80 z-50 px-4 py-2 bg-green-600 text-white rounded-lg shadow-lg hover:bg-green-500 flex items-center gap-2 font-mono text-sm border border-green-500"
               >
-                💬 Open Chat
+                <span className="text-green-300">{'>'}</span> open chat
               </button>
             )}
           </div>
 
           {/* Chat Panel (conditionally shown) */}
           {showChat && (
-            <div className="w-80 border-l border-mc-border relative">
-              <button
-                onClick={() => setShowChat(false)}
-                className="absolute top-2 right-2 z-10 p-1 hover:bg-mc-bg-tertiary rounded text-mc-text-secondary"
-              >
-                ✕
-              </button>
-              <ChatPanel />
+            <div className="w-96 border-l border-mc-border relative flex flex-col bg-mc-bg">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-mc-border bg-mc-bg-secondary font-mono text-xs">
+                <span className="text-green-400">⚡ chat</span>
+                <button
+                  onClick={() => setShowChat(false)}
+                  className="text-mc-text-secondary hover:text-red-400"
+                  title="Close (Esc)"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <ChatPanel />
+              </div>
             </div>
           )}
         </div>
