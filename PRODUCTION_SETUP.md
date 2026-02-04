@@ -156,6 +156,8 @@ No token required for local connections.
 
 ### Remote Connection (Tailscale)
 
+**Option 1: Tailscale (Simplest)**
+
 ```bash
 # .env.local
 OPENCLAW_GATEWAY_URL=wss://your-machine.tail12345.ts.net
@@ -170,6 +172,70 @@ openssl rand -hex 32
 Copy this token to both:
 1. Mission Control's `.env.local`
 2. OpenClaw's gateway configuration
+
+### Remote Connection (Cloudflare Tunnel)
+
+**Option 2: Cloudflare Tunnel (Public Internet Access)**
+
+Use Cloudflare Tunnel if you need public internet access without a VPN.
+
+**Quick Setup:**
+```bash
+# Install cloudflared
+brew install cloudflared  # macOS
+
+# Run the setup script
+./scripts/setup-cloudflare-tunnel.sh mission-control yourdomain.com
+```
+
+**Manual Setup:**
+```bash
+# 1. Authenticate
+cloudflared tunnel login
+
+# 2. Create tunnel
+cloudflared tunnel create mission-control
+
+# 3. Route DNS
+cloudflared tunnel route dns mission-control mission-control.yourdomain.com
+cloudflared tunnel route dns mission-control gateway.yourdomain.com
+
+# 4. Create config at ~/.cloudflared/config.yml
+cat > ~/.cloudflared/config.yml << 'EOF'
+tunnel: YOUR_TUNNEL_ID
+credentials-file: ~/.cloudflared/YOUR_TUNNEL_ID.json
+
+ingress:
+  - hostname: mission-control.yourdomain.com
+    service: http://localhost:3000
+  - hostname: gateway.yourdomain.com
+    service: ws://localhost:18789
+    originRequest:
+      noTLSVerify: true
+  - service: http_status:404
+EOF
+
+# 5. Start tunnel
+cloudflared tunnel run mission-control
+```
+
+**Configure .env.local:**
+```bash
+MISSION_CONTROL_URL=https://mission-control.yourdomain.com
+OPENCLAW_GATEWAY_URL=wss://gateway.yourdomain.com
+OPENCLAW_GATEWAY_TOKEN=$(openssl rand -hex 32)
+CLOUDFLARE_TUNNEL_DOMAIN=mission-control.yourdomain.com
+CLOUDFLARE_TUNNEL_CREDENTIALS_FILE=~/.cloudflared/YOUR_TUNNEL_ID.json
+```
+
+**Start on boot (macOS):**
+```bash
+launchctl load ~/Library/LaunchAgents/com.cloudflare.mission-control.plist
+```
+
+**Comparison:**
+- **Tailscale**: Private network, requires client on all devices, simpler
+- **Cloudflare Tunnel**: Public URLs, works from anywhere, requires DNS setup
 
 ## 🚀 Production Deployment
 
