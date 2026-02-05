@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { User, Sparkles, Users, FileText, Download, Loader2, CheckCircle, Wand2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { User, Sparkles, Users, FileText, Download, Loader2, CheckCircle, Wand2, MessageCircle, Bot } from 'lucide-react';
 
 interface AgentConfig {
   name: string;
@@ -74,19 +75,81 @@ const creaturePresets = [
 ];
 
 export function AgentCreationWizard() {
+  const router = useRouter();
   const [step, setStep] = useState(1);
   const [config, setConfig] = useState<AgentConfig>(defaultConfig);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isCreatingAgent, setIsCreatingAgent] = useState(false);
   const [generated, setGenerated] = useState<{
     soulMd: string;
     userMd: string;
     agentsMd: string;
   } | null>(null);
+  const [createdAgent, setCreatedAgent] = useState<{
+    id: string;
+    name: string;
+    avatar_emoji: string;
+    conversation_id: string;
+  } | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const totalSteps = 4;
 
   const updateConfig = (key: keyof AgentConfig, value: any) => {
     setConfig(prev => ({ ...prev, [key]: value }));
+  };
+
+  const createAgentInMissionControl = async () => {
+    if (!generated) return;
+    
+    setIsCreatingAgent(true);
+    setCreateError(null);
+    
+    try {
+      const response = await fetch('/api/agents/create-from-wizard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: config.name,
+          role: config.role,
+          description: `${config.creature} - ${config.vibe}`,
+          avatarEmoji: config.avatarEmoji,
+          creature: config.creature,
+          vibe: config.vibe,
+          soulMd: generated.soulMd,
+          userMd: generated.userMd,
+          agentsMd: generated.agentsMd,
+          userName: config.userName,
+          whatToCallUser: config.whatToCallUser,
+          userPronouns: config.userPronouns,
+          timezone: config.timezone,
+          userNotes: config.userNotes
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to create agent');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setCreatedAgent(result.agent);
+      }
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to create agent');
+    } finally {
+      setIsCreatingAgent(false);
+    }
+  };
+
+  const startUsingAgent = () => {
+    if (createdAgent?.conversation_id) {
+      router.push(`/?conversation=${createdAgent.conversation_id}`);
+    } else {
+      router.push('/');
+    }
   };
 
   const generateFiles = () => {
@@ -568,7 +631,7 @@ This is a starting point. Add your own conventions, style, and rules as you figu
                   </p>
                 )}
               </>
-            ) : (
+            ) : !createdAgent ? (
               <>
                 <div className="flex items-center gap-3 mb-4">
                   <CheckCircle className="w-5 h-5 text-green-500" />
@@ -619,19 +682,108 @@ This is a starting point. Add your own conventions, style, and rules as you figu
                   </button>
                 </div>
 
-                <div className="mt-4 p-3 bg-green-50 rounded-lg text-sm text-green-800">
-                  <p className="font-medium mb-1">Next Steps:</p>
-                  <ol className="list-decimal ml-4 space-y-1">
-                    <li>Download all three files</li>
-                    <li>Place them in your agent workspace folder</li>
-                    <li>Create <code>memory/</code> subdirectory</li>
-                    <li>Start your agent - it will read these files on first run</li>
-                  </ol>
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Bot className="w-5 h-5 text-blue-600" />
+                    <p className="font-medium text-blue-900">Add to Mission Control</p>
+                  </div>
+                  <p className="text-sm text-blue-700 mb-3">
+                    Create this agent in Mission Control to start using it immediately.
+                  </p>
+                  
+                  {createError && (
+                    <p className="text-sm text-red-600 mb-3">{createError}</p>
+                  )}
+                  
+                  <button
+                    onClick={createAgentInMissionControl}
+                    disabled={isCreatingAgent}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#005EB8] text-white rounded-lg hover:bg-[#004a93] disabled:opacity-50"
+                  >
+                    {isCreatingAgent ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Creating Agent...
+                      </>
+                    ) : (
+                      <>
+                        <Bot className="w-4 h-4" />
+                        Create Agent in Mission Control
+                      </>
+                    )}
+                  </button>
                 </div>
 
                 <button
                   onClick={() => {
                     setGenerated(null);
+                    setStep(1);
+                    setConfig(defaultConfig);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700"
+                >
+                  Create Another Agent
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <h3 className="font-semibold text-gray-900">Agent Created!</h3>
+                </div>
+
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-3xl">{createdAgent.avatar_emoji}</span>
+                    <div>
+                      <p className="font-semibold text-green-900">{createdAgent.name}</p>
+                      <p className="text-sm text-green-700">Ready to help!</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <button
+                    onClick={startUsingAgent}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#005EB8] text-white rounded-lg hover:bg-[#004a93] font-medium"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    Start Using {createdAgent.name}
+                  </button>
+                  
+                  <p className="text-sm text-gray-500 text-center">
+                    This will open a conversation with your new agent
+                  </p>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <p className="text-sm text-gray-600 mb-2">Download configuration files:</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => downloadFile(generated!.soulMd, 'SOUL.md')}
+                      className="flex-1 px-3 py-2 bg-purple-50 text-purple-700 rounded text-sm hover:bg-purple-100"
+                    >
+                      SOUL.md
+                    </button>
+                    <button
+                      onClick={() => downloadFile(generated!.userMd, 'USER.md')}
+                      className="flex-1 px-3 py-2 bg-blue-50 text-blue-700 rounded text-sm hover:bg-blue-100"
+                    >
+                      USER.md
+                    </button>
+                    <button
+                      onClick={() => downloadFile(generated!.agentsMd, 'AGENTS.md')}
+                      className="flex-1 px-3 py-2 bg-orange-50 text-orange-700 rounded text-sm hover:bg-orange-100"
+                    >
+                      AGENTS.md
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setGenerated(null);
+                    setCreatedAgent(null);
                     setStep(1);
                     setConfig(defaultConfig);
                   }}
