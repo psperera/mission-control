@@ -48,6 +48,7 @@ export function MissionPanel() {
   const [loading, setLoading] = useState(true);
   const [expandedMission, setExpandedMission] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [advancing, setAdvancing] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMissions();
@@ -89,6 +90,32 @@ export function MissionPanel() {
       alert('Failed to download file');
     } finally {
       setDownloading(null);
+    }
+  };
+
+  const advancePhase = async (missionId: string) => {
+    setAdvancing(missionId);
+    try {
+      const res = await fetch(`/api/missions/${missionId}/advance-phase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.advanced && data.advanced.length > 0) {
+          alert(`Advanced phases:\n${data.advanced.join('\n')}`);
+          fetchMissions(); // Refresh to show updated progress
+        } else {
+          alert(data.message || 'No phases ready to advance (need 80% task completion)');
+        }
+      } else {
+        alert('Failed to advance phases');
+      }
+    } catch (error) {
+      console.error('Advance phase error:', error);
+      alert('Failed to advance phases');
+    } finally {
+      setAdvancing(null);
     }
   };
 
@@ -253,7 +280,23 @@ export function MissionPanel() {
                   {/* Phases */}
                   {mission.phases.length > 0 && (
                     <div className="mb-4">
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Phases</h4>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-medium text-gray-700">Phases</h4>
+                        <button
+                          onClick={() => advancePhase(mission.id)}
+                          disabled={advancing === mission.id}
+                          className="text-xs px-3 py-1.5 bg-[#005EB8] hover:bg-[#004a93] text-white rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          {advancing === mission.id ? (
+                            <span className="flex items-center gap-1">
+                              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              Advancing...
+                            </span>
+                          ) : (
+                            'Check & Advance'
+                          )}
+                        </button>
+                      </div>
                       <div className="space-y-2">
                         {mission.phases.map((phase) => (
                           <div 
@@ -283,6 +326,9 @@ export function MissionPanel() {
                           </div>
                         ))}
                       </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Auto-advance when 80% of phase tasks are complete
+                      </p>
                     </div>
                   )}
 
