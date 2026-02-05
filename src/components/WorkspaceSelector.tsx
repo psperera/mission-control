@@ -226,7 +226,7 @@ export function WorkspaceSelector({ selectedWorkspace, onWorkspaceChange, varian
                   type="text"
                   value={newWorkspaceName}
                   onChange={(e) => setNewWorkspaceName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#005EB8]"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#005EB8] text-gray-900"
                   placeholder="e.g., ESAB-Eddyfi Analysis"
                 />
               </div>
@@ -238,7 +238,7 @@ export function WorkspaceSelector({ selectedWorkspace, onWorkspaceChange, varian
                   type="email"
                   value={newWorkspaceEmail}
                   onChange={(e) => setNewWorkspaceEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#005EB8]"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#005EB8] text-gray-900"
                   placeholder="stakeholder@company.com"
                 />
                 <p className="text-xs text-gray-500 mt-1">
@@ -249,7 +249,7 @@ export function WorkspaceSelector({ selectedWorkspace, onWorkspaceChange, varian
             <div className="flex gap-2 mt-6">
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700"
               >
                 Cancel
               </button>
@@ -282,7 +282,7 @@ export function WorkspaceSelector({ selectedWorkspace, onWorkspaceChange, varian
                     ...editingWorkspace,
                     email_recipient: e.target.value
                   })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#005EB8]"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#005EB8] text-gray-900"
                   placeholder="stakeholder@company.com"
                 />
               </div>
@@ -305,7 +305,7 @@ export function WorkspaceSelector({ selectedWorkspace, onWorkspaceChange, varian
             <div className="flex gap-2 mt-6">
               <button
                 onClick={() => setShowSettingsModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700"
               >
                 Cancel
               </button>
