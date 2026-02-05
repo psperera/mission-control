@@ -122,6 +122,33 @@ export function MissionPanel() {
     return styles[status] || styles.pending;
   };
 
+  // Calculate estimated time remaining based on progress
+  const calculateETA = (progress: number, totalTasks: number = 30) => {
+    if (progress >= 100) return { text: 'Complete', color: 'text-green-600' };
+    if (progress === 0) return { text: 'Not started', color: 'text-gray-500' };
+    
+    // Estimate: each task takes ~30 minutes, with 30 total tasks
+    const minutesPerTask = 30;
+    const totalMinutes = totalTasks * minutesPerTask;
+    const elapsedMinutes = (progress / 100) * totalMinutes;
+    const remainingMinutes = totalMinutes - elapsedMinutes;
+    
+    if (remainingMinutes < 60) {
+      return { text: `~${Math.round(remainingMinutes)} min left`, color: 'text-blue-600' };
+    } else {
+      const hours = Math.round(remainingMinutes / 60 * 10) / 10;
+      return { text: `~${hours} hrs left`, color: 'text-blue-600' };
+    }
+  };
+
+  // Calculate phase completion percentage
+  const calculatePhaseProgress = (phases: MissionPhase[]) => {
+    const completed = phases.filter(p => p.status === 'completed').length;
+    const inProgress = phases.filter(p => p.status === 'in_progress').length;
+    const total = phases.length || 4;
+    return Math.round(((completed + (inProgress * 0.5)) / total) * 100);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -172,24 +199,57 @@ export function MissionPanel() {
                   <div className="text-sm text-gray-500 mt-0.5">{mission.id}</div>
                 </div>
 
-                {/* Progress Bar */}
-                <div className="w-32">
+                {/* Progress Bar with ETA */}
+                <div className="w-40">
                   <div className="flex items-center justify-between text-xs mb-1">
                     <span className="text-gray-500">Progress</span>
                     <span className="font-medium text-gray-700">{mission.progress}%</span>
                   </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-1">
                     <div 
                       className="h-full bg-[#005EB8] rounded-full transition-all duration-300"
                       style={{ width: `${mission.progress}%` }}
                     />
                   </div>
+                  {(() => {
+                    const eta = calculateETA(mission.progress);
+                    return (
+                      <div className={`text-xs ${eta.color} font-medium text-right`}>
+                        {eta.text}
+                      </div>
+                    );
+                  })()}
                 </div>
               </button>
 
               {/* Expanded Content */}
               {expandedMission === mission.id && (
                 <div className="px-4 pb-4 bg-gray-50/50">
+                  {/* Progress Summary */}
+                  <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-blue-800">Overall Completion</span>
+                      <span className="text-lg font-bold text-blue-600">{mission.progress}%</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-blue-600">
+                        {(() => {
+                          const completedPhases = mission.phases.filter(p => p.status === 'completed').length;
+                          const totalPhases = mission.phases.length || 4;
+                          return `${completedPhases} of ${totalPhases} phases complete`;
+                        })()}
+                      </span>
+                      {(() => {
+                        const eta = calculateETA(mission.progress);
+                        return (
+                          <span className={`font-medium ${eta.color}`}>
+                            Est. finish: {eta.text}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
                   {/* Phases */}
                   {mission.phases.length > 0 && (
                     <div className="mb-4">
