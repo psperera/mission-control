@@ -281,7 +281,7 @@ export function MissionPanel() {
                   {mission.phases.length > 0 && (
                     <div className="mb-4">
                       <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-sm font-medium text-gray-700">Phases</h4>
+                        <h4 className="text-sm font-medium text-gray-700">Phases ({mission.phases.length})</h4>
                         <button
                           onClick={() => advancePhase(mission.id)}
                           disabled={advancing === mission.id}
@@ -297,7 +297,7 @@ export function MissionPanel() {
                           )}
                         </button>
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
                         {mission.phases.map((phase) => (
                           <div 
                             key={phase.id}
