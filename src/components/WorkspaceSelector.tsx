@@ -14,9 +14,10 @@ interface Workspace {
 interface WorkspaceSelectorProps {
   selectedWorkspace: string;
   onWorkspaceChange: (workspaceId: string) => void;
+  variant?: 'light' | 'dark';
 }
 
-export function WorkspaceSelector({ selectedWorkspace, onWorkspaceChange }: WorkspaceSelectorProps) {
+export function WorkspaceSelector({ selectedWorkspace, onWorkspaceChange, variant = 'light' }: WorkspaceSelectorProps) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -129,12 +130,16 @@ export function WorkspaceSelector({ selectedWorkspace, onWorkspaceChange }: Work
       {/* Dropdown Trigger */}
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:border-[#005EB8] transition-colors"
+        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+          variant === 'dark'
+            ? 'bg-white/10 border border-white/20 text-white hover:bg-white/20'
+            : 'bg-white border border-gray-200 text-gray-700 hover:border-[#005EB8]'
+        }`}
       >
-        <span className="font-medium text-gray-700">
+        <span className="font-medium truncate max-w-[150px]">
           {currentWorkspace?.name || 'Select Workspace'}
         </span>
-        <ChevronDown className="w-4 h-4 text-gray-400" />
+        <ChevronDown className={`w-4 h-4 ${variant === 'dark' ? 'text-white/70' : 'text-gray-400'}`} />
       </button>
 
       {/* Dropdown Menu */}

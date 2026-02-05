@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Settings, MessageCircle } from 'lucide-react';
 import { useMissionControl } from '@/lib/store';
 import { format } from 'date-fns';
+import { WorkspaceSelector } from './WorkspaceSelector';
 
 export function Header() {
   const router = useRouter();
@@ -56,15 +57,14 @@ export function Header() {
           <p className="text-sm text-white/70">Mission Control</p>
         </div>
 
-        {/* Business Selector */}
-        <select
-          value={selectedBusiness}
-          onChange={(e) => setSelectedBusiness(e.target.value)}
-          className="ml-4 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:bg-white/20"
-        >
-          <option value="all" className="text-gray-900">All Businesses</option>
-          <option value="default" className="text-gray-900">Default Workspace</option>
-        </select>
+        {/* Workspace Selector */}
+        <div className="ml-4">
+          <WorkspaceSelector
+            selectedWorkspace={selectedBusiness || 'default'}
+            onWorkspaceChange={(workspaceId) => setSelectedBusiness(workspaceId)}
+            variant="dark"
+          />
+        </div>
       </div>
 
       {/* Center: Stats */}
