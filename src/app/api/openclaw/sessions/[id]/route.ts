@@ -50,7 +50,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { content, channel, agent_name } = body;
+    const { content, channel, agent_name, model } = body;
 
     if (!content) {
       return NextResponse.json(
@@ -76,16 +76,24 @@ export async function POST(request: Request, { params }: RouteParams) {
     const agentPrefix = agent_name ? `[${agent_name}] ` : '';
     const prefixedContent = `${agentPrefix}[Mission Control Chat] ${content}`;
 
-    // Send message via telegram channel (the configured channel)
-    // The target 'telegram:8365421338' is the user's telegram ID from the main session
-    await client.call('send', {
+    // Build send options
+    const sendOptions: any = {
       to: 'telegram:8365421338',
       message: prefixedContent,
       channel: 'telegram',
       idempotencyKey: `mc-${Date.now()}`
-    });
+    };
 
-    return NextResponse.json({ success: true, channel: 'telegram' });
+    // Add model override if specified
+    if (model) {
+      sendOptions.model = model;
+    }
+
+    // Send message via telegram channel (the configured channel)
+    // The target 'telegram:8365421338' is the user's telegram ID from the main session
+    await client.call('send', sendOptions);
+
+    return NextResponse.json({ success: true, channel: 'telegram', model: model || 'default' });
   } catch (error) {
     console.error('Failed to send message to OpenClaw session:', error);
     return NextResponse.json(
