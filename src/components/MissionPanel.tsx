@@ -14,6 +14,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { useMissionControl } from '@/lib/store';
+import { PresentationGenerator } from './PresentationGenerator';
 
 interface Mission {
   id: string;
@@ -394,6 +395,11 @@ export function MissionPanel() {
                         </button>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Presentation Generator */}
+                  <div className="mt-4">
+                    <PresentationGenerator missionId={mission.id} />
                   </div>
 
                   {/* Open Folder Link */}
