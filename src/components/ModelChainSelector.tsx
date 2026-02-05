@@ -63,12 +63,30 @@ const providerColors: Record<string, string> = {
   openai: 'from-teal-400 to-green-400',
 };
 
+// Simplified preset options
+const SIMPLE_PRESETS = [
+  {
+    id: 'cost-saving',
+    name: '💰 Cost Saving',
+    modelId: 'moonshot/kimi-k2.5',
+    description: 'Default for you - Great balance of quality and cost',
+    color: 'from-indigo-500 to-purple-500',
+  },
+  {
+    id: 'best',
+    name: '🎯 Best',
+    modelId: 'anthropic/claude-opus-4-6',
+    description: 'Maximum quality - Best for complex tasks',
+    color: 'from-orange-400 to-yellow-400',
+  },
+];
+
 export function ModelChainSelector({ sessionId }: ModelChainSelectorProps) {
   const [models, setModels] = useState<Record<string, Model>>({});
   const [chains, setChains] = useState<Record<string, Chain>>({});
   const [sessionModel, setSessionModel] = useState<SessionModel | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'models' | 'chains'>('models');
+  const [activeTab, setActiveTab] = useState<'simple' | 'advanced'>('simple');
   const [isLoading, setIsLoading] = useState(false);
   const [showChain, setShowChain] = useState(false);
 
@@ -282,32 +300,70 @@ export function ModelChainSelector({ sessionId }: ModelChainSelectorProps) {
             {/* Tabs */}
             <div className="flex gap-1">
               <button
-                onClick={() => setActiveTab('models')}
+                onClick={() => setActiveTab('simple')}
                 className={`flex-1 px-3 py-1.5 text-sm rounded transition-colors ${
-                  activeTab === 'models' 
+                  activeTab === 'simple' 
                     ? 'bg-[#005EB8] text-white' 
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                Models
+                Simple
               </button>
               <button
-                onClick={() => setActiveTab('chains')}
+                onClick={() => setActiveTab('advanced')}
                 className={`flex-1 px-3 py-1.5 text-sm rounded transition-colors ${
-                  activeTab === 'chains' 
+                  activeTab === 'advanced' 
                     ? 'bg-[#005EB8] text-white' 
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                Chains
+                Advanced
               </button>
             </div>
           </div>
 
           {/* Content */}
           <div className="max-h-80 overflow-y-auto">
-            {activeTab === 'models' ? (
+            {activeTab === 'simple' ? (
+              <div className="p-3 space-y-3">
+                <p className="text-xs text-gray-500 mb-2">Choose your preference:</p>
+                {SIMPLE_PRESETS.map((preset) => {
+                  const isSelected = currentModel?.id === preset.modelId;
+                  return (
+                    <button
+                      key={preset.id}
+                      onClick={() => switchModel(preset.modelId)}
+                      className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left ${
+                        isSelected 
+                          ? 'border-[#005EB8] bg-blue-50 shadow-md' 
+                          : 'border-gray-200 hover:border-gray-300 hover:shadow-sm bg-white'
+                      }`}
+                    >
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white flex-shrink-0 bg-gradient-to-br ${preset.color}`}>
+                        {preset.id === 'cost-saving' ? <span className="text-2xl">💰</span> : <span className="text-2xl">🎯</span>}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-gray-900">{preset.name}</p>
+                          {isSelected && <Check className="w-5 h-5 text-[#005EB8]" />}
+                          {preset.id === 'cost-saving' && (
+                            <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1">{preset.description}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {preset.modelId === 'moonshot/kimi-k2.5' ? 'Kimi K2.5 • 256K context' : 'Claude Opus 4.6 • 200K context'}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
               <div className="p-2">
+                <p className="text-xs text-gray-500 mb-2 px-2">All available models:</p>
                 {Object.values(models).map((model) => (
                   <button
                     key={model.id}
@@ -339,39 +395,6 @@ export function ModelChainSelector({ sessionId }: ModelChainSelectorProps) {
                           Aliases: {model.aliases.join(', ')}
                         </p>
                       )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="p-2">
-                {Object.values(chains).map((chain) => (
-                  <button
-                    key={chain.name}
-                    onClick={() => switchModel(chain.name.toLowerCase().replace(/\s+/g, ''), true)}
-                    className={`w-full flex items-start gap-3 p-3 hover:bg-gray-50 transition-colors text-left rounded-lg`}
-                  >
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white flex-shrink-0 bg-gradient-to-br from-purple-400 to-pink-400">
-                      <Layers className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900">{chain.name}</p>
-                      <p className="text-sm text-gray-600">{chain.description}</p>
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
-                          Primary: {chain.primary.split('/').pop()}
-                        </span>
-                        {chain.fallbacks.slice(0, 2).map((fb, idx) => (
-                          <span key={fb} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
-                            {idx + 2}. {fb.split('/').pop()}
-                          </span>
-                        ))}
-                        {chain.fallbacks.length > 2 && (
-                          <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded">
-                            +{chain.fallbacks.length - 2} more
-                          </span>
-                        )}
-                      </div>
                     </div>
                   </button>
                 ))}
