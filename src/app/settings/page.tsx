@@ -7,8 +7,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings, Save, RotateCcw, FolderOpen, Link as LinkIcon } from 'lucide-react';
+import { Settings, Save, RotateCcw, FolderOpen, Link as LinkIcon, Wand2 } from 'lucide-react';
 import { getConfig, updateConfig, resetConfig, type MissionControlConfig } from '@/lib/config';
+import { AgentCreationWizard } from '@/components/AgentCreationWizard';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -202,6 +203,18 @@ export default function SettingsPage() {
               </p>
             </div>
           </div>
+        </section>
+
+        {/* Agent Creation Wizard */}
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Wand2 className="w-5 h-5 text-[#005EB8]" />
+            <h2 className="text-xl font-semibold text-gray-800">Agent Creation</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Create new AI agents with properly configured SOUL.md, USER.md, and AGENTS.md files.
+          </p>
+          <AgentCreationWizard />
         </section>
 
         {/* Environment Variables Note */}
