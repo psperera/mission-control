@@ -5,7 +5,7 @@ import { Send, Users, Plus, X, Zap } from 'lucide-react';
 import { useMissionControl } from '@/lib/store';
 import type { Message, Conversation, Agent, OpenClawHistoryMessage } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
-import { ModelSelector } from './ModelSelector';
+import { ModelChainSelector } from './ModelChainSelector';
 
 export function ChatPanel() {
   const {
@@ -311,11 +311,9 @@ export function ChatPanel() {
               <span className="text-yellow-600">{linkedAgentInfo.agent.name.toLowerCase()}</span>
               <span className="text-gray-400 mx-2">|</span>
               <div className="not-italic">
-                <ModelSelector
-                  selectedModel={selectedModel}
-                  onModelChange={setSelectedModel}
-                  disabled={isSendingToOpenClaw}
-                />
+                {linkedAgentInfo && (
+                  <ModelChainSelector sessionId={linkedAgentInfo.session.openclaw_session_id} />
+                )}
               </div>
               <span className="text-gray-400 ml-auto">
                 {linkedAgentInfo.session.channel === 'telegram' ? '📱 telegram' : '💬 webchat'}
