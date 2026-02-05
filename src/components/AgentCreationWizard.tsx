@@ -226,7 +226,7 @@ Skills define _how_ tools work. TOOLS.md is for _your_ specifics.
 
 **📝 Platform Formatting:**
 - **Discord/WhatsApp:** No markdown tables! Use bullet lists
-- **Discord links:** Wrap in \`<\>` to suppress embeds
+- **Discord links:** Wrap in angle brackets to suppress embeds
 
 ## Heartbeats
 
