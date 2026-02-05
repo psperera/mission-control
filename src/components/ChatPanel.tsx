@@ -5,6 +5,7 @@ import { Send, Users, Plus, X, Zap } from 'lucide-react';
 import { useMissionControl } from '@/lib/store';
 import type { Message, Conversation, Agent, OpenClawHistoryMessage } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
+import { ModelSelector } from './ModelSelector';
 
 export function ChatPanel() {
   const {
@@ -23,6 +24,7 @@ export function ChatPanel() {
 
   const [newMessage, setNewMessage] = useState('');
   const [selectedSender, setSelectedSender] = useState<string>('');
+  const [selectedModel, setSelectedModel] = useState<string>('moonshot/kimi-k2.5');
   const [showConversationList, setShowConversationList] = useState(true);
   const [showNewConvoModal, setShowNewConvoModal] = useState(false);
   const [isSendingToOpenClaw, setIsSendingToOpenClaw] = useState(false);
@@ -146,7 +148,8 @@ export function ChatPanel() {
           body: JSON.stringify({ 
             content: messageContent, 
             channel,
-            agent_name: linkedAgent.agent.name
+            agent_name: linkedAgent.agent.name,
+            model: selectedModel
           }),
         });
 
@@ -299,13 +302,21 @@ export function ChatPanel() {
 
       {/* CLI-style Input */}
       <form onSubmit={handleSendMessage} className="border-t border-gray-200 bg-gray-50">
-        {/* Channel indicator */}
+        {/* Channel indicator and Model Selector */}
         <div className="px-3 py-1.5 border-b border-gray-200/50 flex items-center gap-2 text-xs font-mono">
           {linkedAgentInfo ? (
             <>
               <span className="text-green-600">⚡ openclaw</span>
               <span className="text-gray-400">→</span>
               <span className="text-yellow-600">{linkedAgentInfo.agent.name.toLowerCase()}</span>
+              <span className="text-gray-400 mx-2">|</span>
+              <div className="not-italic">
+                <ModelSelector
+                  selectedModel={selectedModel}
+                  onModelChange={setSelectedModel}
+                  disabled={isSendingToOpenClaw}
+                />
+              </div>
               <span className="text-gray-400 ml-auto">
                 {linkedAgentInfo.session.channel === 'telegram' ? '📱 telegram' : '💬 webchat'}
               </span>
