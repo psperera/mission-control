@@ -1,222 +1,182 @@
-# Mission Control Orchestrator Instructions
+# HEARTBEAT.md - Paul Perera's Mission Control
 
-You are the Mission Control orchestrator. Your job is to:
-1. Check for new tasks in the INBOX
-2. Assign tasks to appropriate agents
-3. Spawn sub-agents to execute work
-4. Monitor progress and ensure tasks complete
+## Current System Status
 
-## CRITICAL: You MUST call Mission Control APIs
+**Last Updated:** 2026-02-05 01:26 GMT
 
-Every action you take MUST be reflected in Mission Control via API calls. The dashboard at http://192.168.0.216:3000 shows task status in real-time.
+### ✅ Core Services
+| Service | Status | Endpoint |
+|---------|--------|----------|
+| Mission Control | ✅ Running | http://localhost:3000 |
+| Cloudflare Tunnel | ✅ Active | https://openclaw.hyflux.net |
+| OpenClaw Gateway | ✅ Connected | ws://127.0.0.1:18789 |
+| Telegram Bot | ✅ Connected | @pereraps |
 
-## On Every Heartbeat
+### 🎯 Active Missions
 
-### Step 1: Check for INBOX tasks
+**ESAB-Eddyfi Competitive Analysis**
+- **Progress:** 13% (Phase 1 of 4 in progress)
+- **Location:** ~/openclaw/missions/esab-eddyfi-waygate-2026/
+- **Priority:** URGENT
+- **Next:** Complete acquisition analysis research
+
+## Heartbeat Checklist
+
+### Step 1: Check INBOX Tasks
 ```bash
-curl -s http://192.168.0.216:3000/api/tasks?status=inbox
+curl -s "http://localhost:3000/api/tasks?status=inbox"
+```
+**Action Required:**
+- [ ] ESAB-Eddyfi analysis (URGENT) - Assign to Orchi if not started
+- [ ] Dashboard layout design (LOW) - Can defer
+
+### Step 2: Check TESTING Tasks (Auto-Test)
+```bash
+curl -s "http://localhost:3000/api/tasks?status=testing"
+```
+**Current:**
+- [ ] "Set up development environment" - Ready for test
+
+**To test:**
+```bash
+curl -X POST "http://localhost:3000/api/tasks/{TASK_ID}/test"
 ```
 
-If tasks exist in INBOX, process them. If not, check REVIEW tasks.
-
-### Step 2: Check TESTING tasks (Auto-Test)
+### Step 3: Check IN_PROGRESS Tasks
 ```bash
-curl -s http://192.168.0.216:3000/api/tasks?status=testing
+curl -s "http://localhost:3000/api/tasks?status=in_progress"
+```
+**Current:**
+- [ ] Hybrid Synchronous Partial Superconducting Motor (Orchi)
+- [ ] Book Repository (Librarian)
+- [ ] Technical Paper Review (Scholar)
+- [ ] Competitor Website Analysis (Scout)
+- [ ] Telegram Dispatch Test (Chip)
+- [ ] Project Documentation (Chip)
+
+### Step 4: Check Agent Connections
+```bash
+curl -s "http://localhost:3000/api/agents"
+```
+**Working Agents (3):**
+- 🦞 Chip (Team Lead) - standby
+- 💻 Orchi (Research) - working
+- 📖 Librarian (Books) - working
+- 📚 Scholar (Papers) - working
+- 🔍 Scout (Competitors) - working
+
+**Standby Agents (4):**
+- 🎨 Designer
+- 💻 Developer
+- 🔍 Researcher
+- ✍️ Writer
+
+### Step 5: Check Mission Progress
+```bash
+curl -s "http://localhost:3000/api/missions"
+```
+**ESAB-Eddyfi Mission:**
+- Phase 1 (Research): 🟡 In Progress
+- Phase 2 (Analysis): ⚪ Pending
+- Phase 3 (Synthesis): ⚪ Pending
+- Phase 4 (Outputs): ⚪ Pending
+
+## API Integration Points
+
+### Frontend → Backend APIs
+
+| Feature | API Endpoint | Status |
+|---------|--------------|--------|
+| Task Queue | GET /api/tasks | ✅ Working |
+| Agent List | GET /api/agents | ✅ Working |
+| Chat Messages | POST /api/openclaw/sessions/{id} | ✅ Working |
+| Mission Progress | GET /api/missions | ✅ Working |
+| File Download | GET /api/missions/{id}/download | ✅ Working |
+| Auto-Testing | POST /api/tasks/{id}/test | ✅ Working |
+
+### WebSocket Events
+- Real-time task updates via SSE
+- Agent status changes
+- Mission progress updates
+
+## Testing Workflow
+
+### For Tasks with Deliverables:
+1. **Agent completes work** → Marks task TESTING
+2. **Auto-test runs** → Checks HTML/CSS/JS
+3. **Pass** → Moves to REVIEW
+4. **Fail** → Returns to ASSIGNED for fixes
+
+### Test Command:
+```bash
+curl -X POST "http://localhost:3000/api/tasks/{TASK_ID}/test" \
+  -H "Content-Type: application/json"
 ```
 
-For each TESTING task, run automated tests before human review:
-```bash
-curl -X POST http://192.168.0.216:3000/api/tasks/{TASK_ID}/test
+### Test Results:
+- Console error detection
+- CSS syntax validation
+- Resource loading checks
+- Screenshots captured
+
+## Chat Integration Test
+
+**Working Flow Confirmed:**
+```
+Mission Control (Browser) 
+  → Open Chat → Type Message
+  → API /api/openclaw/sessions/{id}
+  → OpenClaw Gateway (ws://127.0.0.1:18789)
+  → Telegram (@pereraps)
+  ✅ Delivered successfully
 ```
 
-The test endpoint will:
-- Load HTML deliverables in a headless browser
-- Check for JavaScript console errors
-- Validate CSS syntax (via css-tree)
-- Check for broken resources (images, scripts, stylesheets)
-- Support URL deliverables (HTTP test for PHP/Python, file:// for static)
-- Take screenshots
-- Return pass/fail results
+## Before Saying HEARTBEAT_OK
 
-**If tests PASS:** Task moves to REVIEW with activity log showing success
-**If tests FAIL:** Task auto-moves to ASSIGNED with activity log showing errors
+Verify:
+- [ ] No CRITICAL/URGENT inbox tasks unassigned
+- [ ] All testing tasks have been processed
+- [ ] Working agents have active tasks
+- [ ] Mission progress is being tracked
+- [ ] No gateway errors in logs
+- [ ] Cloudflare tunnel is healthy
 
-### Step 3: Check IN_PROGRESS tasks
+## Common Actions
+
+### Move Task to Testing:
 ```bash
-curl -s http://192.168.0.216:3000/api/tasks?status=in_progress
-```
-
-For each IN_PROGRESS task, check if work is complete and move to TESTING.
-
-### Step 4: Check ASSIGNED tasks (Rework Loop)
-```bash
-curl -s http://192.168.0.216:3000/api/tasks?status=assigned
-```
-
-For each ASSIGNED task, this means it failed automated testing and needs rework:
-1. Check the task's activity log for failure reasons
-2. Move task to IN_PROGRESS
-3. Spawn a sub-agent to fix the issues
-4. After fixes, the agent completion webhook moves it back to TESTING
-
-This creates the rework loop: `TESTING (fail) → ASSIGNED → IN_PROGRESS → TESTING`
-
-## When Processing a New INBOX Task
-
-### 1. Move task to IN_PROGRESS
-```bash
-curl -X PATCH http://192.168.0.216:3000/api/tasks/{TASK_ID} \
+curl -X PATCH "http://localhost:3000/api/tasks/{id}" \
   -H "Content-Type: application/json" \
-  -d '{"status": "in_progress"}'
+  -d '{"status": "testing"}'
 ```
 
-### 2. Log that you're starting
+### Register Deliverable:
 ```bash
-curl -X POST http://192.168.0.216:3000/api/tasks/{TASK_ID}/activities \
-  -H "Content-Type: application/json" \
-  -d '{"activity_type": "updated", "message": "Starting work on task"}'
-```
-
-### 3. Spawn a sub-agent AND register it
-When you spawn a subagent session, you MUST also register it with Mission Control:
-
-```bash
-# Get your subagent session ID (e.g., from the spawn command)
-SUBAGENT_SESSION_ID="your-subagent-session-id"
-
-# Register with Mission Control
-curl -X POST http://192.168.0.216:3000/api/tasks/{TASK_ID}/subagent \
-  -H "Content-Type: application/json" \
-  -d '{
-    "openclaw_session_id": "'$SUBAGENT_SESSION_ID'",
-    "agent_name": "Designer"
-  }'
-```
-
-### 4. Sub-agent creates files via UPLOAD API
-
-**IMPORTANT: You are running on a different machine than Mission Control!**
-You CANNOT write directly to `/Users/chris/`. Instead, use the upload API to send files to Mission Control.
-
-```bash
-# Upload a file to Mission Control server
-curl -X POST http://192.168.0.216:3000/api/files/upload \
-  -H "Content-Type: application/json" \
-  -d '{
-    "relativePath": "{project-name}/index.html",
-    "content": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Page Title</title>\n    <style>\n        /* Your CSS here */\n    </style>\n</head>\n<body>\n    <!-- Your content here -->\n</body>\n</html>"
-  }'
-```
-
-The API will:
-- Create the directory structure automatically
-- Save the file at `/Users/chris/mission-control-projects/{project-name}/index.html`
-- Return the full path in the response
-
-Response example:
-```json
-{
-  "success": true,
-  "path": "/Users/chris/mission-control-projects/dashboard-redesign/index.html",
-  "relativePath": "dashboard-redesign/index.html",
-  "size": 1234
-}
-```
-
-### 5. Download files for verification (OPTIONAL)
-
-Before registering deliverables, you can verify files exist and read their content:
-
-```bash
-# Download via relative path (preferred)
-curl -s "http://192.168.0.216:3000/api/files/download?relativePath={project-name}/index.html"
-
-# Download via full path
-curl -s "http://192.168.0.216:3000/api/files/download?path=/Users/chris/mission-control-projects/{project-name}/index.html"
-
-# Get raw file content (no JSON wrapper)
-curl -s "http://192.168.0.216:3000/api/files/download?relativePath={project-name}/index.html&raw=true"
-```
-
-Use this to:
-- Verify uploaded files exist before registering deliverables
-- Read file content for review tasks
-- Check file modifications
-
-### 6. Register the deliverable (use the path from upload response)
-```bash
-curl -X POST http://192.168.0.216:3000/api/tasks/{TASK_ID}/deliverables \
+curl -X POST "http://localhost:3000/api/tasks/{id}/deliverables" \
   -H "Content-Type: application/json" \
   -d '{
     "deliverable_type": "file",
-    "title": "Homepage Design",
-    "path": "/Users/chris/mission-control-projects/{project-name}/index.html",
-    "description": "Completed design with responsive layout"
+    "title": "Executive Brief",
+    "path": "/Users/paulperera/openclaw/missions/esab-eddyfi-waygate-2026/03-deliverables/executive-brief.md"
   }'
 ```
 
-### 7. Log completion
+### Log Activity:
 ```bash
-curl -X POST http://192.168.0.216:3000/api/tasks/{TASK_ID}/activities \
+curl -X POST "http://localhost:3000/api/tasks/{id}/activities" \
   -H "Content-Type: application/json" \
-  -d '{"activity_type": "completed", "message": "Task completed successfully"}'
+  -d '{
+    "activity_type": "completed",
+    "message": "Phase 1 research completed"
+  }'
 ```
 
-### 8. Mark sub-agent session complete
-```bash
-curl -X PATCH http://192.168.0.216:3000/api/openclaw/sessions/{SUBAGENT_SESSION_ID} \
-  -H "Content-Type: application/json" \
-  -d '{"status": "completed", "ended_at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}'
-```
+## Emergency Contacts
 
-### 9. Move task to REVIEW
-```bash
-curl -X PATCH http://192.168.0.216:3000/api/tasks/{TASK_ID} \
-  -H "Content-Type: application/json" \
-  -d '{"status": "review"}'
-```
+- **Mission Control Local:** http://localhost:3000
+- **Mission Control Remote:** https://openclaw.hyflux.net
+- **Gateway:** ws://127.0.0.1:18789
+- **Mission Files:** ~/openclaw/missions/
 
-## Output Directory
-
-All project files are stored on the Mission Control server at:
-```
-/Users/chris/mission-control-projects/{project-name}/
-```
-
-**IMPORTANT: Cross-Machine Architecture**
-- You (Charlie) run on the M1 Mac
-- Mission Control runs on the M4 Mac at 192.168.0.216
-- You CANNOT directly access `/Users/chris/` - that path doesn't exist on your machine!
-- Use the `/api/files/upload` endpoint to send files to Mission Control
-
-## API Base URL
-
-```
-http://192.168.0.216:3000
-```
-
-## Checklist Before Saying HEARTBEAT_OK
-
-Before responding with HEARTBEAT_OK, verify:
-- [ ] No tasks in INBOX that need processing
-- [ ] All REVIEW tasks have been auto-tested (call /api/tasks/{id}/test)
-- [ ] All IN_PROGRESS tasks have active sub-agents working
-- [ ] All completed work has been registered as deliverables
-- [ ] All completed sub-agents have been marked complete
-- [ ] Completed tasks have been moved to REVIEW
-
-If ANY of these are false, take action instead of saying HEARTBEAT_OK.
-
-## Common Mistakes to Avoid
-
-1. **DON'T** try to write files to `/Users/chris/` - that path is on the M4, not your machine!
-2. **DON'T** spawn subagents without registering them via `/api/tasks/{id}/subagent`
-3. **DON'T** register deliverables for files that don't exist on the Mission Control server
-4. **DON'T** leave tasks stuck in IN_PROGRESS after work is done
-5. **DON'T** say HEARTBEAT_OK if there's pending work
-6. **DON'T** forget to call Mission Control APIs - the dashboard depends on them!
-7. **ALWAYS** use `/api/files/upload` to send files to Mission Control
-
-## Reference
-
-Full API documentation: See ORCHESTRATION.md in the mission-control project.
+---
+*This heartbeat runs every 15 minutes via cron*

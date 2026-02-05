@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HyFlux Mission Control</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        :root {
+            --hyflux-blue: #005EB8;
+            --hyflux-dark-blue: #003D7A;
+            --hyflux-orange: #FF6B35;
+            --hyflux-light-orange: #FF8C5A;
+            --hyflux-gray: #F5F7FA;
+            --hyflux-dark: #1A1F2E;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #F5F7FA 0%, #E8ECF1 100%);
+        }
+        
+        .hyflux-gradient {
+            background: linear-gradient(135deg, var(--hyflux-blue) 0%, var(--hyflux-dark-blue) 100%);
+        }
+        
+        .hyflux-orange-gradient {
+            background: linear-gradient(135deg, var(--hyflux-orange) 0%, var(--hyflux-light-orange) 100%);
+        }
+        
+        .kanban-column {
+            min-height: 400px;
+            transition: all 0.3s ease;
+        }
+        
+        .kanban-column.drag-over {
+            background-color: rgba(0, 94, 184, 0.1);
+            border-color: var(--hyflux-blue);
+        }
+        
+        .task-card {
+            transition: all 0.2s ease;
+            cursor: grab;
+        }
+        
+        .task-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 94, 184, 0.15);
+        }
+        
+        .task-card.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+        
+        .chat-message {
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .pulse-indicator {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        
+        .agent-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 12px;
+            color: white;
+        }
+        
+        .priority-high { background: linear-gradient(135deg, #DC2626, #B91C1C); }
+        .priority-medium { background: linear-gradient(135deg, #F59E0B, #D97706); }
+        .priority-low { background: linear-gradient(135deg, #10B981, #059669); }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 94, 184, 0.1);
+        }
+    </style>
+</head>
+<body class="h-screen overflow-hidden">
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        
+        // HyFlux Brand Colors
+        const colors = {
+            primary: '#005EB8',
+            darkBlue: '#003D7A',
+            orange: '#FF6B35',
+            lightOrange: '#FF8C5A',
+            gray: '#F5F7FA',
+            dark: '#1A1F2E',
+            white: '#FFFFFF'
+        };
+        
+        // Mock Mission Data - ESAB-Eddyfi Analysis
+        const initialTasks = [
+            { id: '1', title: 'ESAB Acquisition Deep Dive', agent: 'Researcher', priority: 'high', column: 'completed', tags: ['Strategic', 'M&A'] },
+            { id: '2', title: 'Executive Brief for Board', agent: 'Scout', priority: 'high', column: 'completed', tags: ['Board', 'Urgent'] },
+            { id: '3', title: 'Investor Call Transcript', agent: 'Scholar', priority: 'medium', column: 'completed', tags: ['Transcript'] },
+            { id: '4', title: 'Phase 2 Technical Analysis', agent: 'Analyst', priority: 'high', column: 'in_progress', tags: ['Technical'] },
+            { id: '5', title: 'Strategic Options Matrix', agent: 'Strategist', priority: 'high', column: 'in_progress', tags: ['Strategy'] },
+            { id: '6', title: 'Competitive Response Plan', agent: 'Advisor', priority: 'medium', column: 'in_progress', tags: ['Planning'] },
+            { id: '7', title: 'Customer Impact Assessment', agent: 'Researcher', priority: 'medium', column: 'todo', tags: ['Analysis'] },
+            { id: '8', title: 'Patent Overlap Analysis', agent: 'Analyst', priority: 'low', column: 'todo', tags: ['IP'] },
+            { id: '9', title: 'Market Trends Report', agent: 'Researcher', priority: 'low', column: 'review', tags: ['Market'] }
+        ];
+        
+        const agents = [
+            { id: 'researcher', name: 'Researcher', color: '#005EB8', icon: 'Search' },
+            { id: 'scout', name: 'Scout', color: '#FF6B35', icon: 'Eye' },
+            { id: 'scholar', name: 'Scholar', color: '#10B981', icon: 'BookOpen' },
+            { id: 'analyst', name: 'Analyst', color: '#8B5CF6', icon: 'BarChart3' },
+            { id: 'strategist', name: 'Strategist', color: '#F59E0B', icon: 'Target' },
+            { id: 'advisor', name: 'Advisor', color: '#EC4899', icon: 'Lightbulb' }
+        ];
+        
+        const columns = [
+            { id: 'todo', title: 'TO DO', color: '#6B7280', icon: 'Circle' },
+            { id: 'in_progress', title: 'IN PROGRESS', color: '#005EB8', icon: 'Loader2' },
+            { id: 'review', title: 'REVIEW', color: '#F59E0B', icon: 'Eye' },
+            { id: 'completed', title: 'COMPLETED', color: '#10B981', icon: 'CheckCircle2' }
+        ];
+        
+        // Chat Component
+        const ChatPanel = ({ isOpen, onClose }) => {
+            const [messages, setMessages] = useState([
+                { id: 1, agent: 'Researcher', text: 'ESAB acquisition analysis complete. $1.45B transaction confirmed.', time: '2:30 PM', type: 'agent' },
+                { id: 2, agent: 'Scout', text: 'Executive brief ready for Board presentation.', time: '2:45 PM', type: 'agent' },
+                { id: 3, agent: 'You', text: 'Great work team. Let me review the strategic options.', time: '3:00 PM', type: 'user' }
+            ]);
+            const [input, setInput] = useState('');
+            const messagesEndRef = useRef(null);
+            
+            const scrollToBottom = () => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            };
+            
+            useEffect(() => {
+                scrollToBottom();
+            }, [messages]);
+            
+            const sendMessage = () => {
+                if (!input.trim()) return;
+                setMessages([...messages, { id: Date.now(), agent: 'You', text: input, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), type: 'user' }]);
+                setInput('');
+            };
+            
+            if (!isOpen) return null;
+            
+            return (
+                <div className="w-96 bg-white border-l border-gray-200 flex flex-col h-full shadow-xl">
+                    <div className="hyflux-gradient p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                                <i data-lucide="message-square" className="w-5 h-5 text-white"></i>
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-white">Agent Chat</h3>
+                                <p className="text-xs text-white/70 flex items-center gap-1">
+                                    <span className="w-2 h-2 bg-green-400 rounded-full pulse-indicator"></span>
+                                    3 agents online
+                                </p>
+                            </div>
+                        </div>
+                        <button onClick={onClose} className="text-white/70 hover:text-white">
+                            <i data-lucide="x" className="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
+                        {messages.map(msg => (
+                            <div key={msg.id} className={`chat-message flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                {msg.type !== 'user' && (
+                                    <div className="w-8 h-8 rounded-full hyflux-orange-gradient flex items-center justify-center mr-2 flex-shrink-0">
+                                        <span className="text-white text-xs font-bold">{msg.agent[0]}</span>
+                                    </div>
+                                )}
+                                <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${
+                                    msg.type === 'user' 
+                                        ? 'hyflux-gradient text-white rounded-br-md' 
+                                        : 'bg-gray-100 text-gray-800 rounded-bl-md'
+                                }`}>
+                                    <p className="text-sm">{msg.text}</p>
+                                    <span className={`text-xs mt-1 block ${msg.type === 'user' ? 'text-white/70' : 'text-gray-500'}`}>
+                                        {msg.time}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                        <div ref={messagesEndRef} />
+                    </div>
+                    
+                    <div className="p-4 border-t border-gray-200 bg-gray-50">
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                                placeholder="Message agents..."
+                                className="flex-1 px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:border-[#005EB8] text-sm"
+                            />
+                            <button 
+                                onClick={sendMessage}
+                                className="w-10 h-10 rounded-full hyflux-orange-gradient flex items-center justify-center hover:opacity-90 transition-opacity"
+                            >
+                                <i data-lucide="send" className="w-4 h-4 text-white"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Kanban Task Card
+        const TaskCard = ({ task, onDragStart }) => {
+            const agent = agents.find(a => a.id === task.agent.toLowerCase()) || agents[0];
+            
+            return (
+                <div
+                    draggable
+                    onDragStart={(e) => onDragStart(e, task.id)}
+                    className="task-card bg-white rounded-lg p-4 mb-3 shadow-sm border border-gray-200 hover:border-[#005EB8]/30"
+                >
+                    <div className="flex items-start justify-between mb-2">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium text-white ${
+                            task.priority === 'high' ? 'priority-high' :
+                            task.priority === 'medium' ? 'priority-medium' : 'priority-low'
+                        }`}>
+                            {task.priority.toUpperCase()}
+                        </span>
+                        <button className="text-gray-400 hover:text-gray-600">
+                            <i data-lucide="more-horizontal" className="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    
+                    <h4 className="font-medium text-gray-900 mb-2 text-sm leading-snug">{task.title}</h4>
+                    
+                    <div className="flex flex-wrap gap-1 mb-3">
+                        {task.tags.map(tag => (
+                            <span key={tag} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
+                                {tag}
+                            </span>
+                        ))}
+                    </div>
+                    
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                        <div className="flex items-center gap-2">
+                            <div 
+                                className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                                style={{ backgroundColor: agent.color }}
+                            >
+                                {agent.name[0]}
+                            </div>
+                            <span className="text-xs text-gray-500">{agent.name}</span>
+                        </div>
+                        <i data-lucide="grip-vertical" className="w-4 h-4 text-gray-300"></i>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Main App
+        const App = () => {
+            const [tasks, setTasks] = useState(initialTasks);
+            const [draggedTask, setDraggedTask] = useState(null);
+            const [chatOpen, setChatOpen] = useState(true);
+            const [activeTab, setActiveTab] = useState('kanban');
+            
+            useEffect(() => {
+                lucide.createIcons();
+            }, []);
+            
+            const handleDragStart = (e, taskId) => {
+                setDraggedTask(taskId);
+                e.target.classList.add('dragging');
+            };
+            
+            const handleDragEnd = (e) => {
+                e.target.classList.remove('dragging');
+                setDraggedTask(null);
+            };
+            
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                e.currentTarget.classList.add('drag-over');
+            };
+            
+            const handleDragLeave = (e) => {
+                e.currentTarget.classList.remove('drag-over');
+            };
+            
+            const handleDrop = (e, columnId) => {
+                e.preventDefault();
+                e.currentTarget.classList.remove('drag-over');
+                
+                if (draggedTask) {
+                    setTasks(tasks.map(task => 
+                        task.id === draggedTask ? { ...task, column: columnId } : task
+                    ));
+                }
+            };
+            
+            const stats = {
+                total: tasks.length,
+                completed: tasks.filter(t => t.column === 'completed').length,
+                inProgress: tasks.filter(t => t.column === 'in_progress').length,
+                highPriority: tasks.filter(t => t.priority === 'high').length
+            };
+            
+            return (
+                <div className="h-screen flex flex-col">
+                    {/* Header */}
+                    <header className="hyflux-gradient text-white px-6 py-4 flex items-center justify-between shadow-lg">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center">
+                                <i data-lucide="hexagon" className="w-7 h-7"></i>
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-bold">HYFLUX</h1>
+                                <p className="text-xs text-white/70">Mission Control Dashboard</p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-6">
+                            <div className="flex gap-4 text-sm">
+                                <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full">
+                                    <i data-lucide="target" className="w-4 h-4"></i>
+                                    <span>{stats.total} Tasks</span>
+                                </div>
+                                <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full">
+                                    <i data-lucide="check-circle" className="w-4 h-4 text-green-400"></i>
+                                    <span>{stats.completed} Done</span>
+                                </div>
+                                <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full">
+                                    <i data-lucide="loader-2" className="w-4 h-4 animate-spin"></i>
+                                    <span>{stats.inProgress} Active</span>
+                                </div>
+                            </div>
+                            
+                            <button 
+                                onClick={() => setChatOpen(!chatOpen)}
+                                className="relative w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+                            >
+                                <i data-lucide="message-square" className="w-5 h-5"></i>
+                                <span className="absolute -top-1 -right-1 w-5 h-5 hyflux-orange-gradient rounded-full text-xs flex items-center justify-center font-bold">3</span>
+                            </button>
+                            
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FF6B35] to-[#FF8C5A] flex items-center justify-center">
+                                <span className="font-bold">PP</span>
+                            </div>
+                        </div>
+                    </header>
+                    
+                    {/* Main Content */}
+                    <div className="flex-1 flex overflow-hidden">
+                        {/* Sidebar */}
+                        <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+                            <div className="p-4">
+                                <div className="flex gap-2 mb-6">
+                                    <button 
+                                        onClick={() => setActiveTab('kanban')}
+                                        className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                            activeTab === 'kanban' 
+                                                ? 'hyflux-gradient text-white' 
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        <i data-lucide="columns" className="w-4 h-4 inline mr-2"></i>
+                                        Kanban
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveTab('list')}
+                                        className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                            activeTab === 'list' 
+                                                ? 'hyflux-gradient text-white' 
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        <i data-lucide="list" className="w-4 h-4 inline mr-2"></i>
+                                        List
+                                    </button>
+                                </div>
+                                
+                                <div className="space-y-1">
+                                    <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Mission</h3>
+                                    <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-white hyflux-gradient">
+                                        <i data-lucide="rocket" className="w-4 h-4"></i>
+                                        ESAB-Eddyfi Analysis
+                                    </button>
+                                    <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100">
+                                        <i data-lucide="briefcase" className="w-4 h-4"></i>
+                                        Market Research
+                                    </button>
+                                    <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100">
+                                        <i data-lucide="shield" className="w-4 h-4"></i>
+                                        Competitive Intel
+                                    </button>
+                                </div>
+                                
+                                <div className="mt-6 space-y-1">
+                                    <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Agents</h3>
+                                    {agents.map(agent => (
+                                        <button key={agent.id} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100">
+                                            <div 
+                                                className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs"
+                                                style={{ backgroundColor: agent.color }}
+                                            >
+                                                {agent.name[0]}
+                                            </div>
+                                            {agent.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            <div className="mt-auto p-4 border-t border-gray-200">
+                                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100">
+                                    <i data-lucide="settings" className="w-4 h-4"></i>
+                                    Settings
+                                </button>
+                                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100">
+                                    <i data-lucide="help-circle" className="w-4 h-4"></i>
+                                    Help
+                                </button>
+                            </div>
+                        </aside>
+                        
+                        {/* Kanban Board */}
+                        <main className="flex-1 overflow-x-auto overflow-y-hidden bg-[#F5F7FA] p-6">
+                            <div className="flex gap-6 h-full min-w-max">
+                                {columns.map(column => (
+                                    <div
+                                        key={column.id}
+                                        className="kanban-column w-80 flex flex-col"
+                                        onDragOver={handleDragOver}
+                                        onDragLeave={handleDragLeave}
+                                        onDrop={(e) => handleDrop(e, column.id)}
+                                    >
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-2">
+                                                <div 
+                                                    className="w-8 h-8 rounded-lg flex items-center justify-center"
+                                                    style={{ backgroundColor: `${column.color}20`, color: column.color }}
+                                                >
+                                                    <i data-lucide={column.icon.toLowerCase().replace('2', '')} className="w-4 h-4"></i>
+                                                </div>
+                                                <h3 className="font-semibold text-gray-800">{column.title}</h3>
+                                                <span className="px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full text-xs font-medium">
+                                                    {tasks.filter(t => t.column === column.id).length}
+                                                </span>
+                                            </div>
+                                            <button className="text-gray-400 hover:text-gray-600">
+                                                <i data-lucide="plus" className="w-5 h-5"></i>
+                                            </button>
+                                        </div>
+                                        
+                                        <div className="flex-1 overflow-y-auto scrollbar-thin pr-2">
+                                            {tasks
+                                                .filter(task => task.column === column.id)
+                                                .map(task => (
+                                                    <TaskCard 
+                                                        key={task.id} 
+                                                        task={task} 
+                                                        onDragStart={handleDragStart}
+                                                    />
+                                                ))
+                                            }
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </main>
+                        
+                        {/* Chat Panel */}
+                        <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} />
+                    </div>
+                </div>
+            );
+        };
+        
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

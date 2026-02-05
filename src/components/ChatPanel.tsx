@@ -143,7 +143,11 @@ export function ChatPanel() {
         const res = await fetch(`/api/openclaw/sessions/${linkedAgent.session.openclaw_session_id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: messageContent, channel }),
+          body: JSON.stringify({ 
+            content: messageContent, 
+            channel,
+            agent_name: linkedAgent.agent.name
+          }),
         });
 
         if (res.ok) {
@@ -229,32 +233,32 @@ export function ChatPanel() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-mc-bg-secondary">
+    <div className="flex flex-col h-full bg-gray-50">
       {/* CLI-style Header */}
-      <div className="px-3 py-2 border-b border-mc-border flex items-center gap-3 font-mono text-sm bg-mc-bg-secondary">
+      <div className="px-3 py-2 border-b border-gray-200 flex items-center gap-3 font-mono text-sm bg-gray-50">
         <button
           onClick={() => setShowConversationList(true)}
-          className="text-mc-text-secondary hover:text-mc-text"
+          className="text-gray-500 hover:text-gray-700"
           title="Back to list"
         >
           ←
         </button>
         <div className="flex-1 flex items-center gap-2">
-          <span className="text-mc-text-tertiary">#</span>
-          <span className="text-mc-text">
+          <span className="text-gray-400">#</span>
+          <span className="text-gray-800">
             {currentConversation?.title?.toLowerCase().replace(/\s+/g, '-') || 'chat'}
           </span>
           {linkedAgentInfo && (
             <>
-              <span className="text-mc-text-tertiary">|</span>
-              <span className="text-green-400 flex items-center gap-1">
+              <span className="text-gray-400">|</span>
+              <span className="text-green-600 flex items-center gap-1">
                 <Zap className="w-3 h-3" />
                 {linkedAgentInfo.session.channel || 'webchat'}
               </span>
             </>
           )}
         </div>
-        <div className="text-mc-text-tertiary text-xs">
+        <div className="text-gray-400 text-xs">
           {currentConversation?.participants?.map((p) => p.name.toLowerCase()).join(', ')}
         </div>
         <button
@@ -262,7 +266,7 @@ export function ChatPanel() {
             setCurrentConversation(null);
             setShowConversationList(true);
           }}
-          className="text-mc-text-secondary hover:text-red-400"
+          className="text-gray-500 hover:text-red-500"
           title="Close"
         >
           ×
@@ -270,19 +274,19 @@ export function ChatPanel() {
       </div>
 
       {/* Messages - CLI style */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-4 font-mono bg-mc-bg">
+      <div className="flex-1 overflow-y-auto p-3 space-y-4 font-mono bg-white">
         {displayMessages.length === 0 && (
-          <div className="text-mc-text-tertiary text-sm">
+          <div className="text-gray-400 text-sm">
             {linkedAgentInfo ? (
               <>
-                <div className="text-green-400/60">// connected to {linkedAgentInfo.agent.name.toLowerCase()}</div>
-                <div className="text-green-400/60">// channel: {linkedAgentInfo.session.channel || 'webchat'}</div>
-                <div className="mt-2">type a message to begin...</div>
+                <div className="text-green-600/60">{`// connected to ${linkedAgentInfo.agent.name.toLowerCase()}`}</div>
+                <div className="text-green-600/60">{`// channel: ${linkedAgentInfo.session.channel || 'webchat'}`}</div>
+                <div className="mt-2 text-gray-500">type a message to begin...</div>
               </>
             ) : (
               <>
-                <div className="text-blue-400/60">// local conversation</div>
-                <div className="mt-2">select a sender and type a message...</div>
+                <div className="text-blue-600/60">{`// local conversation`}</div>
+                <div className="mt-2 text-gray-500">select a sender and type a message...</div>
               </>
             )}
           </div>
@@ -294,25 +298,25 @@ export function ChatPanel() {
       </div>
 
       {/* CLI-style Input */}
-      <form onSubmit={handleSendMessage} className="border-t border-mc-border bg-mc-bg">
+      <form onSubmit={handleSendMessage} className="border-t border-gray-200 bg-gray-50">
         {/* Channel indicator */}
-        <div className="px-3 py-1.5 border-b border-mc-border/50 flex items-center gap-2 text-xs font-mono">
+        <div className="px-3 py-1.5 border-b border-gray-200/50 flex items-center gap-2 text-xs font-mono">
           {linkedAgentInfo ? (
             <>
-              <span className="text-green-400">⚡ openclaw</span>
-              <span className="text-mc-text-tertiary">→</span>
-              <span className="text-yellow-400">{linkedAgentInfo.agent.name.toLowerCase()}</span>
-              <span className="text-mc-text-tertiary ml-auto">
+              <span className="text-green-600">⚡ openclaw</span>
+              <span className="text-gray-400">→</span>
+              <span className="text-yellow-600">{linkedAgentInfo.agent.name.toLowerCase()}</span>
+              <span className="text-gray-400 ml-auto">
                 {linkedAgentInfo.session.channel === 'telegram' ? '📱 telegram' : '💬 webchat'}
               </span>
             </>
           ) : (
             <>
-              <span className="text-blue-400">💬 local</span>
+              <span className="text-blue-600">💬 local</span>
               {selectedSender && (
                 <>
-                  <span className="text-mc-text-tertiary">as</span>
-                  <span className="text-cyan-400">
+                  <span className="text-gray-400">as</span>
+                  <span className="text-cyan-600">
                     {agents.find(a => a.id === selectedSender)?.name.toLowerCase()}
                   </span>
                 </>
@@ -323,15 +327,15 @@ export function ChatPanel() {
 
         {/* Sender Selection - hidden for OpenClaw convos */}
         {!linkedAgentInfo && (
-          <div className="px-3 py-2 border-b border-mc-border/50">
+          <div className="px-3 py-2 border-b border-gray-200/50">
             <select
               value={selectedSender}
               onChange={(e) => setSelectedSender(e.target.value)}
-              className="w-full bg-transparent border-none text-sm font-mono text-mc-text focus:outline-none"
+              className="w-full bg-transparent border-none text-sm font-mono text-gray-700 focus:outline-none"
             >
-              <option value="" className="bg-mc-bg">select sender...</option>
+              <option value="" className="bg-gray-50">select sender...</option>
               {agents.map((agent) => (
-                <option key={agent.id} value={agent.id} className="bg-mc-bg">
+                <option key={agent.id} value={agent.id} className="bg-gray-50">
                   {agent.avatar_emoji} {agent.name}
                 </option>
               ))}
@@ -341,23 +345,23 @@ export function ChatPanel() {
 
         {/* CLI-style input */}
         <div className="flex items-center px-3 py-2 font-mono">
-          <span className="text-green-400 mr-2">{'>'}</span>
+          <span className="text-green-600 mr-2">{'>'}</span>
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder={linkedAgentInfo ? 'type message...' : 'type message...'}
-            className="flex-1 bg-transparent border-none text-sm text-mc-text focus:outline-none placeholder:text-mc-text-tertiary"
+            className="flex-1 bg-transparent border-none text-sm text-gray-700 focus:outline-none placeholder:text-gray-400"
             disabled={isSendingToOpenClaw}
             autoFocus
           />
           {isSendingToOpenClaw ? (
-            <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
+            <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
           ) : (
             <button
               type="submit"
               disabled={!newMessage.trim() || (!linkedAgentInfo && !selectedSender)}
-              className="text-mc-text-secondary hover:text-green-400 disabled:opacity-30 disabled:hover:text-mc-text-secondary transition-colors"
+              className="text-gray-500 hover:text-green-600 disabled:opacity-30 disabled:hover:text-gray-500 transition-colors"
             >
               <Send className="w-4 h-4" />
             </button>
@@ -402,18 +406,18 @@ function MessageBubble({ message, isOpenClaw }: { message: Message; isOpenClaw?:
   return (
     <div className="font-mono text-sm animate-slide-in group">
       {/* CLI-style header */}
-      <div className="flex items-center gap-2 text-mc-text-secondary text-xs mb-1">
-        <span className="text-mc-text-tertiary">{timestamp}</span>
-        <span className={`${isYourMessage ? 'text-blue-400' : 'text-green-400'}`}>
+      <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
+        <span className="text-gray-400">{timestamp}</span>
+        <span className={`${isYourMessage ? 'text-blue-600' : 'text-green-600'}`}>
           {channelIndicator} {senderName}
         </span>
         {isOpenClaw && !isYourMessage && (
-          <span className="text-yellow-500/60">via openclaw</span>
+          <span className="text-yellow-600/60">via openclaw</span>
         )}
       </div>
       {/* Message content - CLI style */}
       <div className={`pl-4 border-l-2 ${isYourMessage ? 'border-blue-500/30' : 'border-green-500/30'}`}>
-        <pre className="text-mc-text whitespace-pre-wrap break-words leading-relaxed">
+        <pre className="text-gray-700 whitespace-pre-wrap break-words leading-relaxed">
           {message.content}
         </pre>
       </div>
@@ -468,12 +472,12 @@ function ConversationList({
   };
 
   return (
-    <div className="flex flex-col h-full bg-mc-bg-secondary">
-      <div className="p-3 border-b border-mc-border flex items-center justify-between">
-        <h3 className="font-medium text-sm">Conversations</h3>
+    <div className="flex flex-col h-full bg-gray-50">
+      <div className="p-3 border-b border-gray-200 flex items-center justify-between">
+        <h3 className="font-medium text-sm text-gray-700">Conversations</h3>
         <button
           onClick={onNewConversation}
-          className="p-1.5 bg-mc-accent text-mc-bg rounded hover:bg-mc-accent/90"
+          className="p-1.5 bg-blue-600 text-white rounded hover:bg-blue-700"
         >
           <Plus className="w-4 h-4" />
         </button>
@@ -484,7 +488,7 @@ function ConversationList({
           <button
             key={conv.id}
             onClick={() => onSelect(conv)}
-            className="w-full p-3 text-left rounded hover:bg-mc-bg-tertiary transition-colors"
+            className="w-full p-3 text-left rounded hover:bg-gray-100 transition-colors"
           >
             <div className="flex items-center gap-2">
               <div className="flex -space-x-1">
@@ -495,11 +499,11 @@ function ConversationList({
                 ))}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">
+                <p className="font-medium text-sm text-gray-800 truncate">
                   {conv.title || conv.participants?.map((p) => p.name).join(', ')}
                 </p>
                 {conv.last_message && (
-                  <p className="text-xs text-mc-text-secondary truncate">
+                  <p className="text-xs text-gray-500 truncate">
                     {conv.last_message.content}
                   </p>
                 )}
@@ -509,7 +513,7 @@ function ConversationList({
         ))}
 
         {conversations.length === 0 && (
-          <div className="text-center py-8 text-mc-text-secondary text-sm">
+          <div className="text-center py-8 text-gray-500 text-sm">
             No conversations yet
           </div>
         )}
@@ -518,28 +522,28 @@ function ConversationList({
       {/* New Conversation Modal */}
       {showNewConvoModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-mc-bg-secondary border border-mc-border rounded-lg w-full max-w-md p-4">
-            <h3 className="font-semibold mb-4">New Conversation</h3>
+          <div className="bg-white border border-gray-200 rounded-lg w-full max-w-md p-4">
+            <h3 className="font-semibold mb-4 text-gray-800">New Conversation</h3>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm mb-1">Title (optional)</label>
+                <label className="block text-sm mb-1 text-gray-600">Title (optional)</label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Conversation name..."
-                  className="w-full bg-mc-bg border border-mc-border rounded px-3 py-2 text-sm focus:outline-none focus:border-mc-accent"
+                  className="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm mb-2">Participants</label>
+                <label className="block text-sm mb-2 text-gray-600">Participants</label>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {agents.map((agent) => (
                     <label
                       key={agent.id}
-                      className="flex items-center gap-2 p-2 hover:bg-mc-bg-tertiary rounded cursor-pointer"
+                      className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
                     >
                       <input
                         type="checkbox"
@@ -554,7 +558,7 @@ function ConversationList({
                         className="w-4 h-4"
                       />
                       <span className="text-lg">{agent.avatar_emoji}</span>
-                      <span className="text-sm">{agent.name}</span>
+                      <span className="text-sm text-gray-700">{agent.name}</span>
                     </label>
                   ))}
                 </div>
@@ -564,14 +568,14 @@ function ConversationList({
             <div className="flex justify-end gap-2 mt-4">
               <button
                 onClick={() => setShowNewConvoModal(false)}
-                className="px-4 py-2 text-sm text-mc-text-secondary hover:text-mc-text"
+                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateConversation}
                 disabled={selectedAgents.length < 1}
-                className="px-4 py-2 bg-mc-accent text-mc-bg rounded text-sm font-medium hover:bg-mc-accent/90 disabled:opacity-50"
+                className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
               >
                 Create
               </button>

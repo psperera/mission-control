@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react';
 import { FileText, Link as LinkIcon, Package, ExternalLink, Eye } from 'lucide-react';
 import { debug } from '@/lib/debug';
+import { AddDeliverableForm } from './AddDeliverableForm';
 import type { TaskDeliverable } from '@/lib/types';
 
 interface DeliverablesListProps {
@@ -21,6 +22,10 @@ export function DeliverablesList({ taskId }: DeliverablesListProps) {
   useEffect(() => {
     loadDeliverables();
   }, [taskId]);
+
+  const handleDeliverableAdded = (deliverable: TaskDeliverable) => {
+    setDeliverables((prev) => [deliverable, ...prev]);
+  };
 
   const loadDeliverables = async () => {
     try {
@@ -121,15 +126,20 @@ export function DeliverablesList({ taskId }: DeliverablesListProps) {
 
   if (deliverables.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-mc-text-secondary">
-        <div className="text-4xl mb-2">📦</div>
-        <p>No deliverables yet</p>
+      <div className="space-y-4">
+        <AddDeliverableForm taskId={taskId} onDeliverableAdded={handleDeliverableAdded} />
+        <div className="flex flex-col items-center justify-center py-8 text-mc-text-secondary">
+          <div className="text-4xl mb-2">📦</div>
+          <p>No deliverables yet</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      <AddDeliverableForm taskId={taskId} onDeliverableAdded={handleDeliverableAdded} />
+      <div className="space-y-3">
       {deliverables.map((deliverable) => (
         <div
           key={deliverable.id}
@@ -192,6 +202,7 @@ export function DeliverablesList({ taskId }: DeliverablesListProps) {
           </div>
         </div>
       ))}
+      </div>
     </div>
   );
 }

@@ -49,7 +49,30 @@ OPENCLAW_GATEWAY_TOKEN=your-token-here
 
 # Database
 DATABASE_PATH=./mission-control.db
+
+# Email Delivery Configuration (Optional)
+FROM_EMAIL=your-sender@email.com
+FROM_NAME=Mission Control
+SMTP_SERVER=smtp.zoho.eu
+SMTP_PORT=465
+SMTP_PASSWORD=your-smtp-password
+LOGO_DEV_KEY=your-logo-dev-key  # Optional, for company logos in emails
 ```
+
+### Email Delivery Setup
+
+To enable email delivery of mission deliverables:
+
+1. **Configure SMTP settings** in `.env.local` (see above)
+
+2. **Test email delivery**:
+   ```bash
+   python3 scripts/email_delivery.py recipient@company.com
+   ```
+
+3. **Customize email template** (optional):
+   - Edit `scripts/email_delivery.py` to customize company logos
+   - Modify `create_email_template()` function for custom branding
 
 ### OpenClaw Gateway Setup
 

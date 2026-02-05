@@ -50,7 +50,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { content, channel } = body;
+    const { content, channel, agent_name } = body;
 
     if (!content) {
       return NextResponse.json(
@@ -72,21 +72,20 @@ export async function POST(request: Request, { params }: RouteParams) {
       }
     }
 
-    // Prefix message with [Mission Control] so agent knows the source
-    const prefixedContent = `[Mission Control] ${content}`;
+    // Prefix message with agent name and [Mission Control] so agent knows the source
+    const agentPrefix = agent_name ? `[${agent_name}] ` : '';
+    const prefixedContent = `${agentPrefix}[Mission Control Chat] ${content}`;
 
-    // Use the send method with proper parameters
-    // Channel defaults to webchat for direct chat, or use provided channel
-    const targetChannel = channel || 'webchat';
-
+    // Send message via telegram channel (the configured channel)
+    // The target 'telegram:8365421338' is the user's telegram ID from the main session
     await client.call('send', {
-      to: id,
+      to: 'telegram:8365421338',
       message: prefixedContent,
-      channel: targetChannel,
-      idempotencyKey: `chat-${id}-${Date.now()}`
+      channel: 'telegram',
+      idempotencyKey: `mc-${Date.now()}`
     });
 
-    return NextResponse.json({ success: true, channel: targetChannel });
+    return NextResponse.json({ success: true, channel: 'telegram' });
   } catch (error) {
     console.error('Failed to send message to OpenClaw session:', error);
     return NextResponse.json(

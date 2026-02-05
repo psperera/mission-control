@@ -19,6 +19,33 @@ AI Agent Orchestration Dashboard for OpenClaw.
 - **Telegram Integration**: Connect agents to Telegram for multi-channel communication
 - **Live Feed**: Real-time event stream showing all activity
 - **OpenClaw Integration**: Connects to your local OpenClaw Gateway via WebSocket
+- **Email Delivery**: Send mission deliverables with professional formatting and company logos
+
+### Email Delivery
+
+Send professional deliverable emails with company logos and secure download links:
+
+```bash
+# Send deliverables via email
+python3 scripts/email_delivery.py recipient@company.com
+```
+
+**Features:**
+- Professional HTML email template with company branding
+- Company logos via logo.dev API (optional)
+- Secure download credentials
+- ZIP attachment support
+- Configurable via environment variables
+
+**Setup:**
+1. Configure email settings in `.env.local`:
+   ```bash
+   FROM_EMAIL=your@email.com
+   SMTP_PASSWORD=your-smtp-password
+   LOGO_DEV_KEY=your-logo-dev-key  # Optional, for company logos
+   ```
+
+2. Customize company logos in `scripts/email_delivery.py`
 
 ## How It Works
 

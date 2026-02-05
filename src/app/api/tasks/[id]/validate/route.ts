@@ -72,7 +72,7 @@ function detectAISlop(content: string): { score: number; matches: string[] } {
     }
   }
 
-  return { score, matches: [...new Set(matches)] };
+  return { score, matches: Array.from(new Set(matches)) };
 }
 
 function countWords(content: string): number {

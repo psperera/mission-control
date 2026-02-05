@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, run } from '@/lib/db';
+import { notifyTelegram, formatAgentProgress, formatCriticalIntel } from '@/lib/telegram/notifications';
 import type { Event } from '@/lib/types';
 
 // GET /api/events - List events (live feed)
@@ -79,6 +80,22 @@ export async function POST(request: NextRequest) {
         now,
       ]
     );
+
+    // Send Telegram notification for important event types
+    const telegramEventTypes = ['agent_progress', 'critical_intel', 'task_completed', 'system'];
+    if (telegramEventTypes.includes(body.type)) {
+      let telegramMessage = body.message;
+      
+      // Format based on event type
+      if (body.type === 'critical_intel') {
+        telegramMessage = formatCriticalIntel(body.message);
+      } else if (body.agent_id && body.agent_emoji) {
+        telegramMessage = formatAgentProgress(body.agent_name || 'Agent', body.agent_emoji, body.message);
+      }
+      
+      // Send notification (don't await, fire and forget)
+      notifyTelegram(telegramMessage).catch(console.error);
+    }
 
     return NextResponse.json({ id, type: body.type, message: body.message, created_at: now }, { status: 201 });
   } catch (error) {

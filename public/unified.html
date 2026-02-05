@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HyFlux Unified Mission Control</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        :root {
+            --hyflux-blue: #005EB8;
+            --hyflux-orange: #FF6B35;
+        }
+        .hyflux-gradient { background: linear-gradient(135deg, #005EB8 0%, #003D7A 100%); }
+        .hyflux-orange-gradient { background: linear-gradient(135deg, #FF6B35 0%, #FF8C5A 100%); }
+        .task-card { transition: all 0.2s ease; cursor: grab; }
+        .task-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0, 94, 184, 0.15); }
+        .task-card.dragging { opacity: 0.5; }
+        .kanban-column { min-height: 400px; }
+        .kanban-column.drag-over { background-color: rgba(0, 94, 184, 0.05); }
+        .chat-message { animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .pulse-dot { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: #f1f1f1; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-gray-50 h-screen overflow-hidden">
+    <!-- Header -->
+    <header class="hyflux-gradient text-white px-6 py-4 flex items-center justify-between shadow-lg">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold">HYFLUX</h1>
+                <p class="text-sm text-white/70">Unified Mission Control</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-6">
+            <div class="flex gap-4 text-sm">
+                <div class="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full">
+                    <span class="w-2 h-2 bg-green-400 rounded-full pulse-dot"></span>
+                    <span>System Online</span>
+                </div>
+                <div class="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    <span>9 Tasks</span>
+                </div>
+            </div>
+            <button id="chatToggle" class="relative w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                <span class="absolute -top-1 -right-1 w-5 h-5 hyflux-orange-gradient rounded-full text-xs flex items-center justify-center font-bold">3</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="flex h-[calc(100vh-80px)]">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white border-r border-gray-200 flex flex-col">
+            <div class="p-4">
+                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Active Mission</h3>
+                <button class="w-full text-left p-3 rounded-lg hyflux-gradient text-white mb-4">
+                    <div class="font-semibold text-sm">ESAB-Eddyfi Analysis</div>
+                    <div class="text-xs text-white/70 mt-1">Strategic Intelligence</div>
+                </button>
+                
+                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Agents</h3>
+                <div class="space-y-1">
+                    <button class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100">
+                        <div class="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">R</div>
+                        Researcher
+                    </button>
+                    <button class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100">
+                        <div class="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-white text-xs font-bold">S</div>
+                        Scout
+                    </button>
+                    <button class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100">
+                        <div class="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-bold">Sc</div>
+                        Scholar
+                    </button>
+                    <button class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100">
+                        <div class="w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center text-white text-xs font-bold">A</div>
+                        Analyst
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Kanban Board -->
+        <main class="flex-1 overflow-x-auto overflow-y-hidden bg-gray-50 p-6">
+            <div class="flex gap-6 h-full min-w-max">
+                <!-- To Do -->
+                <div class="kanban-column w-80 flex flex-col" data-column="todo">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            </div>
+                            <h3 class="font-semibold text-gray-800">TO DO</h3>
+                            <span class="px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full text-xs font-medium" id="count-todo">2</span>
+                        </div>
+                    </div>
+                    <div class="flex-1 overflow-y-auto scrollbar-thin pr-2 space-y-3" id="todo-cards">
+                        <div class="task-card bg-white rounded-lg p-4 shadow-sm border border-gray-200" draggable="true" data-task="7">
+                            <div class="flex items-start justify-between mb-2">
+                                <span class="px-2 py-0.5 rounded text-xs font-medium text-white bg-yellow-500">MEDIUM</span>
+                            </div>
+                            <h4 class="font-medium text-gray-900 mb-2 text-sm">Customer Impact Assessment</h4>
+                            <div class="flex items-center gap-2">
+                                <div class="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs">R</div>
+                                <span class="text-xs text-gray-500">Researcher</span>
+                            </div>
+                        </div>
+                        <div class="task-card bg-white rounded-lg p-4 shadow-sm border border-gray-200" draggable="true" data-task="8">
+                            <div class="flex items-start justify-between mb-2">
+                                <span class="px-2 py-0.5 rounded text-xs font-medium text-white bg-green-500">LOW</span>
+                            </div>
+                            <h4 class="font-medium text-gray-900 mb-2 text-sm">Patent Overlap Analysis</h4>
+                            <div class="flex items-center gap-2">
+                                <div class="w-5 h-5 rounded-full bg-yellow-500 flex items-center justify-center text-white text-xs">A</div>
+                                <span class="text-xs text-gray-500">Analyst</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- In Progress -->
+                <div class="kanban-column w-80 flex flex-col" data-column="inprogress">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            </div>
+                            <h3 class="font-semibold text-blue-600">IN PROGRESS</h3>
+                            <span class="px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full text-xs font-medium" id="count-inprogress">3</span>
+                        </div>
+                    </div>
+                    <div class="flex-1 overflow-y-auto scrollbar-thin pr-2 space-y-3" id="inprogress-cards">
+                        <div class="task-card bg-white rounded-lg p-4 shadow-sm border-l-4 border-blue-500" draggable="true" data-task="4">
+                            <div class="flex items-start justify-between mb-2">
+                                <span class="px-2 py-0.5 rounded text-xs font-medium text-white bg-red-500">HIGH</span>
+                            </div>
+                            <h4 class="font-medium text-gray-900 mb-2 text-sm">Phase 2 Technical Analysis</h4>
+                            <div class="flex items-center gap-2">
+                                <div class="w-5 h-5 rounded-full bg-yellow-500 flex items-center justify-center text-white text-xs">A</div>
+                                <span class="text-xs text-gray-500">Analyst</span>
+                            </div>
+                        </div>
+                        <div class="task-card bg-white rounded-lg p-4 shadow-sm border-l-4 border-blue-500" draggable="true" data-task="5">
+                            <div class="flex items-start justify-between mb-2">
+                                <span class="px-2 py-0.5 rounded text-xs font-medium text-white bg-red-500">HIGH</span>
+                            </div>
+                            <h4 class="font-medium text-gray-900 mb-2 text-sm">Strategic Options Matrix</h4>
+                            <div class="flex items-center gap-2">
+                                <div class="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center text-white text-xs">St</div>
+                                <span class="text-xs text-gray-500">Strategist</span>
+                            </div>
+                        </div>
+                        <div class="task-card bg-white rounded-lg p-4 shadow-sm border-l-4 border-blue-500" draggable="true" data-task="6">
+                            <div class="flex items-start justify-between mb-2">
+                                <span class="px-2 py-0.5 rounded text-xs font-medium text-white bg-yellow-500">MEDIUM</span>
+                            </div>
+                            <h4 class="font-medium text-gray-900 mb-2 text-sm">Competitive Response Plan</h4>
+                            <div class="flex items-center gap-2">
+                                <div class="w-5 h-5 rounded-full bg-pink-500 flex items-center justify-center text-white text-xs">Ad</div>
+                                <span class="text-xs text-gray-500">Advisor</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Review -->
+                <div class="kanban-column w-80 flex flex-col" data-column="review">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-yellow-100 flex items-center justify-center text-yellow-600">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                            </div>
+                            <h3 class="font-semibold text-yellow-600">REVIEW</h3>
+                            <span class="px-2 py-0.5 bg-yellow-100 text-yellow-600 rounded-full text-xs font-medium" id="count-review">1</span>
+                        </div>
+                    </div>
+                    <div class="flex-1 overflow-y-auto scrollbar-thin pr-2 space-y-3" id="review-cards">
+                        <div class="task-card bg-white rounded-lg p-4 shadow-sm border-l-4 border-yellow-500" draggable="true" data-task="9">
+                            <div class="flex items-start justify-between mb-2">
+                                <span class="px-2 py-0.5 rounded text-xs font-medium text-white bg-green-500">LOW</span>
+                            </div>
+                            <h4 class="font-medium text-gray-900 mb-2 text-sm">Market Trends Report</h4>
+                            <div class="flex items-center gap-2">
+                                <div class="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs">R</div>
+                                <span class="text-xs text-gray-500">Researcher</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Completed -->
+                <div class="kanban-column w-80 flex flex-col" data-column="completed">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center text-green-600">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            </div>
+                            <h3 class="font-semibold text-green-600">COMPLETED</h3>
+                            <span class="px-2 py-0.5 bg-green-100 text-green-600 rounded-full text-xs font-medium" id="count-completed">3</span>
+                        </div>
+                    </div>
+                    <div class="flex-1 overflow-y-auto scrollbar-thin pr-2 space-y-3" id="completed-cards">
+                        <div class="task-card bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500 opacity-75" draggable="true" data-task="1">
+                            <div class="flex items-start justify-between mb-2">
+                                <span class="px-2 py-0.5 rounded text-xs font-medium text-white bg-red-500">HIGH</span>
+                                <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            </div>
+                            <h4 class="font-medium text-gray-900 mb-2 text-sm line-through">ESAB Acquisition Deep Dive</h4>
+                            <div class="flex items-center gap-2">
+                                <div class="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs">R</div>
+                                <span class="text-xs text-gray-500">Researcher</span>
+                            </div>
+                        </div>
+                        <div class="task-card bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500 opacity-75" draggable="true" data-task="2">
+                            <div class="flex items-start justify-between mb-2">
+                                <span class="px-2 py-0.5 rounded text-xs font-medium text-white bg-red-500">HIGH</span>
+                                <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            </div>
+                            <h4 class="font-medium text-gray-900 mb-2 text-sm line-through">Executive Brief for Board</h4>
+                            <div class="flex items-center gap-2">
+                                <div class="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-white text-xs">S</div>
+                                <span class="text-xs text-gray-500">Scout</span>
+                            </div>
+                        </div>
+                        <div class="task-card bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500 opacity-75" draggable="true" data-task="3">
+                            <div class="flex items-start justify-between mb-2">
+                                <span class="px-2 py-0.5 rounded text-xs font-medium text-white bg-yellow-500">MEDIUM</span>
+                                <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            </div>
+                            <h4 class="font-medium text-gray-900 mb-2 text-sm line-through">Investor Call Transcript</h4>
+                            <div class="flex items-center gap-2">
+                                <div class="w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs">Sc</div>
+                                <span class="text-xs text-gray-500">Scholar</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Chat Panel -->
+        <div id="chatPanel" class="w-96 bg-white border-l border-gray-200 flex flex-col h-full shadow-xl">
+            <div class="hyflux-gradient p-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-white">Agent Chat</h3>
+                        <p class="text-xs text-white/70 flex items-center gap-1">
+                            <span class="w-2 h-2 bg-green-400 rounded-full pulse-dot"></span>
+                            3 agents online
+                        </p>
+                    </div>
+                </div>
+                <button id="closeChat" class="text-white/70 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            
+            <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-4">
+                <div class="flex gap-3">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">R</div>
+                    <div class="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-2 max-w-[75%]">
+                        <p class="text-sm text-gray-800">ESAB acquisition analysis complete. $1.45B transaction confirmed.</p>
+                        <span class="text-xs text-gray-400 mt-1">2:30 PM</span>
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">S</div>
+                    <div class="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-2 max-w-[75%]">
+                        <p class="text-sm text-gray-800">Executive brief ready for Board presentation.</p>
+                        <span class="text-xs text-gray-400 mt-1">2:45 PM</span>
+                    </div>
+                </div>
+                <div class="flex gap-3 flex-row-reverse">
+                    <div class="w-8 h-8 rounded-full hyflux-orange-gradient flex items-center justify-center text-white text-xs font-bold flex-shrink-0">PP</div>
+                    <div class="hyflux-gradient text-white rounded-2xl rounded-br-md px-4 py-2 max-w-[75%]">
+                        <p class="text-sm">Great work team. Let me review the strategic options.</p>
+                        <span class="text-xs text-white/70 mt-1">3:00 PM</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 border-t border-gray-200 bg-gray-50">
+                <div class="flex gap-2">
+                    <input type="text" id="chatInput" placeholder="Message agents..." class="flex-1 px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:border-[#005EB8] text-sm">
+                    <button id="sendMessage" class="w-10 h-10 rounded-full hyflux-orange-gradient flex items-center justify-center hover:opacity-90 transition-opacity">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Drag and Drop functionality
+        let draggedElement = null;
+        
+        document.querySelectorAll('.task-card').forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+                draggedElement = e.target;
+                e.target.classList.add('dragging');
+            });
+            
+            card.addEventListener('dragend', (e) => {
+                e.target.classList.remove('dragging');
+            });
+        });
+        
+        document.querySelectorAll('.kanban-column').forEach(column => {
+            column.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                column.classList.add('drag-over');
+            });
+            
+            column.addEventListener('dragleave', () => {
+                column.classList.remove('drag-over');
+            });
+            
+            column.addEventListener('drop', (e) => {
+                e.preventDefault();
+                column.classList.remove('drag-over');
+                if (draggedElement) {
+                    const cardContainer = column.querySelector('[id$="-cards"]');
+                    cardContainer.appendChild(draggedElement);
+                    updateCounts();
+                }
+            });
+        });
+        
+        function updateCounts() {
+            document.getElementById('count-todo').textContent = document.querySelectorAll('#todo-cards .task-card').length;
+            document.getElementById('count-inprogress').textContent = document.querySelectorAll('#inprogress-cards .task-card').length;
+            document.getElementById('count-review').textContent = document.querySelectorAll('#review-cards .task-card').length;
+            document.getElementById('count-completed').textContent = document.querySelectorAll('#completed-cards .task-card').length;
+        }
+        
+        // Chat functionality
+        const chatPanel = document.getElementById('chatPanel');
+        const chatToggle = document.getElementById('chatToggle');
+        const closeChat = document.getElementById('closeChat');
+        const chatInput = document.getElementById('chatInput');
+        const sendMessage = document.getElementById('sendMessage');
+        const chatMessages = document.getElementById('chatMessages');
+        
+        chatToggle.addEventListener('click', () => {
+            chatPanel.classList.toggle('hidden');
+        });
+        
+        closeChat.addEventListener('click', () => {
+            chatPanel.classList.add('hidden');
+        });
+        
+        function addMessage(text, isUser = false) {
+            const div = document.createElement('div');
+            div.className = `flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`;
+            div.innerHTML = `
+                <div class="w-8 h-8 rounded-full ${isUser ? 'hyflux-orange-gradient' : 'bg-gradient-to-br from-blue-500 to-blue-600'} flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    ${isUser ? 'PP' : 'R'}
+                </div>
+                <div class="${isUser ? 'hyflux-gradient text-white rounded-br-md' : 'bg-gray-100 rounded-bl-md'} rounded-2xl px-4 py-2 max-w-[75%]">
+                    <p class="text-sm ${isUser ? 'text-white' : 'text-gray-800'}">${text}</p>
+                    <span class="text-xs ${isUser ? 'text-white/70' : 'text-gray-400'} mt-1">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                </div>
+            `;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        sendMessage.addEventListener('click', () => {
+            const text = chatInput.value.trim();
+            if (text) {
+                addMessage(text, true);
+                chatInput.value = '';
+                setTimeout(() => {
+                    addMessage('Processing your request...');
+                }, 1000);
+            }
+        });
+        
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage.click();
+        });
+    </script>
+</body>
+</html>

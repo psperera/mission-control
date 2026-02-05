@@ -1,10 +1,12 @@
 // OpenClaw Gateway WebSocket Client
 
 import { EventEmitter } from 'events';
+import WebSocket from 'ws';
 import type { OpenClawMessage, OpenClawSessionInfo } from '../types';
 
 const GATEWAY_URL = process.env.OPENCLAW_GATEWAY_URL || 'ws://127.0.0.1:18789';
 const GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN || '';
+console.log('[OpenClaw Module] GATEWAY_TOKEN loaded:', GATEWAY_TOKEN ? `length=${GATEWAY_TOKEN.length}, startsWith=${GATEWAY_TOKEN.substring(0, 3)}` : 'EMPTY');
 
 export class OpenClawClient extends EventEmitter {
   private ws: WebSocket | null = null;
@@ -51,13 +53,19 @@ export class OpenClawClient extends EventEmitter {
         }
 
         // Add token to URL query string for Gateway authentication
-        const wsUrl = new URL(this.url);
+        let wsUrl = this.url;
+        const headers: Record<string, string> = {};
+        
         if (this.token) {
-          wsUrl.searchParams.set('token', this.token);
+          const url = new URL(this.url);
+          url.searchParams.set('token', this.token);
+          wsUrl = url.toString();
+          // Also add as Authorization header for compatibility
+          headers['Authorization'] = `Bearer ${this.token}`;
         }
-        console.log('[OpenClaw] Connecting to:', wsUrl.toString().replace(/token=[^&]+/, 'token=***'));
-        console.log('[OpenClaw] Token in URL:', wsUrl.searchParams.has('token'));
-        this.ws = new WebSocket(wsUrl.toString());
+        console.log('[OpenClaw] Connecting to:', wsUrl.replace(/token=[^&]+/, 'token=***'));
+        console.log('[OpenClaw] Token in URL:', wsUrl.includes('token='));
+        this.ws = new WebSocket(wsUrl, [], { headers });
 
         const connectionTimeout = setTimeout(() => {
           if (!this.connected) {
@@ -73,7 +81,7 @@ export class OpenClawClient extends EventEmitter {
           // Token is in URL query string
         };
 
-        this.ws.onclose = (event) => {
+        this.ws.onclose = (event: WebSocket.CloseEvent) => {
           clearTimeout(connectionTimeout);
           const wasConnected = this.connected;
           this.connected = false;
@@ -88,9 +96,9 @@ export class OpenClawClient extends EventEmitter {
           }
         };
 
-        this.ws.onerror = (error) => {
+        this.ws.onerror = (error: WebSocket.ErrorEvent) => {
           clearTimeout(connectionTimeout);
-          console.error('[OpenClaw] WebSocket error');
+          console.error('[OpenClaw] WebSocket error:', error.message);
           this.emit('error', error);
           if (!this.connected) {
             this.connecting = null;
@@ -98,10 +106,11 @@ export class OpenClawClient extends EventEmitter {
           }
         };
 
-        this.ws.onmessage = (event) => {
-          console.log('[OpenClaw] Received:', event.data);
+        this.ws.onmessage = (event: WebSocket.MessageEvent) => {
+          const message = typeof event.data === 'string' ? event.data : event.data.toString();
+          console.log('[OpenClaw] Received:', message);
           try {
-            const data = JSON.parse(event.data as string);
+            const data = JSON.parse(message);
 
             // Handle challenge-response authentication (OpenClaw RequestFrame format)
             if (data.type === 'event' && data.event === 'connect.challenge') {
@@ -143,7 +152,8 @@ export class OpenClawClient extends EventEmitter {
                 }
               });
 
-              console.log('[OpenClaw] Sending challenge response');
+              console.log('[OpenClaw] Sending challenge response with token length:', this.token.length);
+              console.log('[OpenClaw] Token starts with:', this.token.substring(0, 3));
               this.ws!.send(JSON.stringify(response));
               return;
             }
@@ -260,7 +270,11 @@ export class OpenClawClient extends EventEmitter {
   // Send message to a specific target (telegram ID, etc.)
   async send(to: string, message: string, channel?: string, idempotencyKey?: string): Promise<void> {
     const key = idempotencyKey || `send-${to}-${Date.now()}`;
-    await this.call('send', { to, message, channel, idempotencyKey: key });
+    const params: Record<string, unknown> = { to, message, idempotencyKey: key };
+    if (channel) {
+      params.channel = channel;
+    }
+    await this.call('send', params);
   }
 
   async createSession(channel: string, peer?: string): Promise<OpenClawSessionInfo> {

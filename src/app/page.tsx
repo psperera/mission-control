@@ -6,7 +6,6 @@ import { AgentsSidebar } from '@/components/AgentsSidebar';
 import { MissionQueue } from '@/components/MissionQueue';
 import { LiveFeed } from '@/components/LiveFeed';
 import { ChatPanel } from '@/components/ChatPanel';
-import { SSEDebugPanel } from '@/components/SSEDebugPanel';
 import { useMissionControl } from '@/lib/store';
 import { useSSE } from '@/hooks/useSSE';
 import { debug } from '@/lib/debug';
@@ -21,7 +20,6 @@ export default function MissionControlPage() {
     setIsOnline,
     setIsLoading,
     isLoading,
-    tasks,
   } = useMissionControl();
 
   const [showChat, setShowChat] = useState(false);
@@ -156,17 +154,21 @@ export default function MissionControlPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-mc-bg flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-4xl mb-4 animate-pulse">🦞</div>
-          <p className="text-mc-text-secondary">Loading Mission Control...</p>
+          <div className="w-16 h-16 hyflux-gradient rounded-xl flex items-center justify-center text-white text-3xl mb-4 animate-pulse">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+            </svg>
+          </div>
+          <p className="text-gray-500">Loading HyFlux Mission Control...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col bg-mc-bg overflow-hidden">
+    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
       <Header />
 
       <div className="flex-1 flex overflow-hidden">
@@ -183,27 +185,33 @@ export default function MissionControlPage() {
             {!showChat && (
               <button
                 onClick={() => setShowChat(true)}
-                className="fixed bottom-6 right-80 z-50 px-4 py-2 bg-green-600 text-white rounded-lg shadow-lg hover:bg-green-500 flex items-center gap-2 font-mono text-sm border border-green-500"
+                className="fixed bottom-6 right-80 z-50 px-4 py-2 hyflux-gradient text-white rounded-lg shadow-lg hover:opacity-90 flex items-center gap-2 text-sm font-medium transition-opacity"
               >
-                <span className="text-green-300">{'>'}</span> open chat
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                Open Chat
               </button>
             )}
           </div>
 
           {/* Chat Panel (conditionally shown) */}
           {showChat && (
-            <div className="w-96 flex-shrink-0 border-l border-mc-border flex flex-col bg-mc-bg-secondary">
-              <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-b border-mc-border bg-mc-bg font-mono text-xs">
-                <span className="text-green-400">⚡ chat</span>
+            <div className="w-96 flex-shrink-0 border-l border-gray-200 flex flex-col bg-gray-50 h-full">
+              <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white">
+                <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  Mission Chat
+                </span>
                 <button
                   onClick={() => setShowChat(false)}
-                  className="text-mc-text-secondary hover:text-red-400 px-2"
+                  className="text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
                   title="Close (Esc)"
                 >
-                  ✕ close
+                  ✕
                 </button>
               </div>
-              <div className="flex-1 min-h-0 overflow-auto">
+              <div className="flex-1 min-h-0 overflow-hidden">
                 <ChatPanel />
               </div>
             </div>
@@ -213,9 +221,6 @@ export default function MissionControlPage() {
         {/* Live Feed */}
         <LiveFeed />
       </div>
-
-      {/* Debug Panel - only shows when debug mode enabled */}
-      <SSEDebugPanel />
     </div>
   );
 }

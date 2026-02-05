@@ -39,10 +39,10 @@ export async function POST(request: NextRequest) {
          WHERE (openclaw_session_id = ? OR openclaw_session_id LIKE ?)
          AND status = ?`,
         [sessionId, `%${sessionId}%`, 'active']
-      );
+      ) || null;
 
       if (session) {
-        agent = queryOne<Agent>('SELECT * FROM agents WHERE id = ?', [session.agent_id]);
+        agent = queryOne<Agent>('SELECT * FROM agents WHERE id = ?', [session.agent_id]) || null;
       }
     }
 
@@ -54,10 +54,10 @@ export async function POST(request: NextRequest) {
          AND (peer = ? OR metadata LIKE ?)
          AND status = ?`,
         [from, `%${from}%`, 'active']
-      );
+      ) || null;
 
       if (session) {
-        agent = queryOne<Agent>('SELECT * FROM agents WHERE id = ?', [session.agent_id]);
+        agent = queryOne<Agent>('SELECT * FROM agents WHERE id = ?', [session.agent_id]) || null;
       }
     }
 

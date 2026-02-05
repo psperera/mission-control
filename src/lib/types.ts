@@ -101,6 +101,7 @@ export interface OpenClawSession {
   agent_id: string;
   openclaw_session_id: string;
   channel?: string;
+  peer?: string;
   status: string;
   session_type: 'persistent' | 'subagent';
   task_id?: string;
