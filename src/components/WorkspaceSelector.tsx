@@ -154,7 +154,7 @@ export function WorkspaceSelector({ selectedWorkspace, onWorkspaceChange, varian
                 key={workspace.id}
                 className={`flex items-center gap-2 px-3 py-2 rounded cursor-pointer ${
                   selectedWorkspace === workspace.id
-                    ? 'bg-blue-50 text-blue-700'
+                    ? 'bg-blue-50'
                     : 'hover:bg-gray-50'
                 }`}
                 onClick={() => {
@@ -163,9 +163,11 @@ export function WorkspaceSelector({ selectedWorkspace, onWorkspaceChange, varian
                 }}
               >
                 <div className="flex-1">
-                  <div className="font-medium">{workspace.name}</div>
+                  <div className={`font-medium ${selectedWorkspace === workspace.id ? 'text-blue-700' : 'text-gray-900'}`}>
+                    {workspace.name}
+                  </div>
                   {workspace.email_recipient && (
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-gray-600">
                       {workspace.email_enabled ? '✓' : '✗'} {workspace.email_recipient}
                     </div>
                   )}
