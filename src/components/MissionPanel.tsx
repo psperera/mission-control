@@ -95,13 +95,19 @@ export function MissionPanel() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
+        return (
+          <div className="flex items-center justify-center w-6 h-6 bg-green-500 rounded-full">
+            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+        );
       case 'in_progress':
-        return <Clock className="w-4 h-4 text-yellow-500" />;
+        return <Clock className="w-6 h-6 text-yellow-500" />;
       case 'blocked':
-        return <AlertCircle className="w-4 h-4 text-red-500" />;
+        return <AlertCircle className="w-6 h-6 text-red-500" />;
       default:
-        return <Circle className="w-4 h-4 text-gray-300" />;
+        return <Circle className="w-6 h-6 text-gray-300" />;
     }
   };
 
@@ -188,20 +194,32 @@ export function MissionPanel() {
                   {mission.phases.length > 0 && (
                     <div className="mb-4">
                       <h4 className="text-sm font-medium text-gray-700 mb-2">Phases</h4>
-                      <div className="space-y-1">
+                      <div className="space-y-2">
                         {mission.phases.map((phase) => (
                           <div 
                             key={phase.id}
-                            className="flex items-center gap-3 p-2 bg-white rounded border border-gray-100"
+                            className={`flex items-center gap-3 p-3 rounded-lg border ${
+                              phase.status === 'completed' 
+                                ? 'bg-green-50 border-green-200' 
+                                : phase.status === 'in_progress'
+                                ? 'bg-yellow-50 border-yellow-200'
+                                : 'bg-white border-gray-100'
+                            }`}
                           >
                             {getStatusIcon(phase.status)}
-                            <span className="text-sm text-gray-600 w-6">{phase.phase_number}.</span>
-                            <span className="text-sm text-gray-800 flex-1">{phase.title}</span>
-                            {phase.assigned_agent_id && (
-                              <span className="text-xs text-gray-400">
-                                {agents.find(a => a.id === phase.assigned_agent_id)?.name || 'Unknown'}
-                              </span>
-                            )}
+                            <span className="text-sm font-medium text-gray-600 w-6">{phase.phase_number}.</span>
+                            <span className={`text-sm flex-1 ${
+                              phase.status === 'completed' ? 'text-green-800 font-medium' : 'text-gray-800'
+                            }`}>{phase.title}</span>
+                            <span className={`text-xs px-2 py-1 rounded-full ${
+                              phase.status === 'completed' 
+                                ? 'bg-green-100 text-green-700' 
+                                : phase.status === 'in_progress'
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {phase.status === 'completed' ? '✓ Completed' : phase.status === 'in_progress' ? 'In Progress' : 'Pending'}
+                            </span>
                           </div>
                         ))}
                       </div>
