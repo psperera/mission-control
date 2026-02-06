@@ -7,9 +7,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings, Save, RotateCcw, FolderOpen, Link as LinkIcon, Wand2 } from 'lucide-react';
+import { Settings, Save, RotateCcw, FolderOpen, Link as LinkIcon, Wand2, Bot } from 'lucide-react';
 import { getConfig, updateConfig, resetConfig, type MissionControlConfig } from '@/lib/config';
 import { AgentCreationWizard } from '@/components/AgentCreationWizard';
+import { OpenClawModelSetting } from '@/components/OpenClawModelSetting';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -203,6 +204,11 @@ export default function SettingsPage() {
               </p>
             </div>
           </div>
+        </section>
+
+        {/* OpenClaw Default Model */}
+        <section className="mb-8">
+          <OpenClawModelSetting />
         </section>
 
         {/* Agent Creation Wizard */}
