@@ -29,6 +29,27 @@ export async function POST(
     }
 
     const db = getDb();
+
+    // HyperOrchestrator v5.1 guardrail: prevent duplicate sub-agents
+    const existingActive = db.prepare(`
+      SELECT * FROM openclaw_sessions
+      WHERE task_id = ? AND session_type = 'subagent' AND status = 'active'
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).get(taskId) as any;
+
+    if (existingActive) {
+      // Return existing session instead of creating duplicate
+      return NextResponse.json(
+        {
+          ...existingActive,
+          _reused: true,
+          _message: 'Active session already exists for this task. Reusing instead of spawning duplicate.',
+        },
+        { status: 200 }
+      );
+    }
+
     const sessionId = crypto.randomUUID();
 
     // Create a placeholder agent if agent_name is provided

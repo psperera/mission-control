@@ -3,7 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryOne, run, queryAll } from '@/lib/db';
 import { broadcast } from '@/lib/events';
 import { getMissionControlUrl } from '@/lib/config';
-import type { Task, UpdateTaskRequest, Agent, TaskDeliverable } from '@/lib/types';
+import { isValidTransition } from '@/lib/chip-orchestration';
+import type { Task, UpdateTaskRequest, Agent, TaskDeliverable, TaskStatus } from '@/lib/types';
 
 // GET /api/tasks/[id] - Get a single task
 export async function GET(
@@ -91,6 +92,14 @@ export async function PATCH(
 
     // Handle status change
     if (body.status !== undefined && body.status !== existing.status) {
+      // Enforce forward-only status transitions (HyperOrchestrator v5.1 guardrail)
+      if (!isValidTransition(existing.status as TaskStatus, body.status as TaskStatus)) {
+        return NextResponse.json(
+          { error: `Invalid status transition: ${existing.status} → ${body.status}. Only forward transitions allowed.` },
+          { status: 400 }
+        );
+      }
+
       updates.push('status = ?');
       values.push(body.status);
 

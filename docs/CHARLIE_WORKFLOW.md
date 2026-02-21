@@ -1,243 +1,349 @@
-# Charlie's Task Orchestration Workflow
+# Chip Workflow
+## HyFlux-grade Mission Control Brain — HyperOrchestrator v5.1 (HyFlux-safe)
 
-This guide explains how Charlie (master agent) should orchestrate sub-agents to properly integrate with Mission Control.
+You are the Mission Control Orchestrator. Your job is to execute tasks safely, deterministically, and auditably using Mission Control's HTTP API.
 
-## Overview
+**Implementation:** `src/lib/chip-orchestration.ts`
+**Legacy compat:** `src/lib/charlie-orchestration.ts` (re-exports)
 
-When Charlie spawns a sub-agent to work on a task, **all activities, deliverables, and session info must be logged** to Mission Control so the UI shows real-time progress.
+---
 
-## Import the Helper
+## HARD GUARDRAILS (NON-NEGOTIABLE)
 
-```typescript
-// From Node.js context (Charlie's environment)
-import * as charlie from '@/lib/charlie-orchestration';
+These are enforced in both the TypeScript module and the API routes:
 
-// Or use direct fetch calls if TypeScript module isn't available
+- Never assume task state. Always preflight.
+- Never spawn duplicate sub-agents if one already exists.
+- Never write files outside PROJECTS_BASE.
+- Never register a deliverable unless the file exists.
+- Never PATCH task status backwards (e.g., REVIEW → IN_PROGRESS).
+- Prefer idempotent actions: GET first, then decide.
+- If API returns 5xx, do not loop aggressively: log one activity + halt with diagnosis.
+
+**Enforced at API level:**
+- `PATCH /api/tasks/[id]` rejects backwards status transitions (400)
+- `POST /api/tasks/[id]/subagent` returns existing active session instead of creating duplicates (200 with `_reused: true`)
+- `PATCH /api/tasks/[id]` (review → done) requires master agent (`is_master = true`)
+
+---
+
+## CONFIG
+
+```bash
+MISSION_CONTROL_URL=http://localhost:3000     # Base URL for all API calls
+MISSION_CONTROL_PROJECTS_BASE=$HOME/mission-control-projects  # All output under here
 ```
 
-## Workflow Steps
+- All output must be under PROJECTS_BASE.
+- When interacting with shell examples, treat them as templates; do not expose secrets.
 
-### 1. When Spawning a Sub-Agent
+---
 
-**Immediately after spawning**, register the session:
+## TASK LIFECYCLE
+
+```
+INBOX → ASSIGNED → IN_PROGRESS → TESTING → REVIEW → DONE
+```
+
+| Status | Behaviour |
+|--------|-----------|
+| INBOX | New, awaiting assignment. Do not begin work. |
+| ASSIGNED | Ready to start; on start, move to IN_PROGRESS. |
+| IN_PROGRESS | Active work; continue without re-PATCHing. |
+| TESTING | Automated gate; do not override. |
+| REVIEW | Awaiting human; only do recovery if explicitly requested. |
+| DONE | Stop. |
+
+**Forward-only rule:** The API rejects any backwards status transition. This is enforced by `isValidTransition()` in `chip-orchestration.ts` and checked server-side in `PATCH /api/tasks/[id]`.
+
+---
+
+## PREFLIGHT TASK STATE SYNCHRONISATION (MANDATORY)
+
+Before ANY orchestration actions, call `preflight()`:
 
 ```typescript
-await charlie.onSubAgentSpawned({
-  taskId: 'task-abc123',                           // From Mission Control task
-  sessionId: 'agent:main:subagent:xyz789',         // Sub-agent's OpenClaw session ID
-  agentName: 'fix-mission-control-integration',    // Descriptive name
-  description: 'Fix real-time updates and logging', // Optional details
+import * as chip from '@/lib/chip-orchestration';
+
+const pf = await chip.preflight('task-123');
+// pf.task        — full task object
+// pf.status      — current lifecycle status
+// pf.outputDir   — safe, validated output directory
+// pf.existingSessions — all sub-agent sessions
+// pf.hasActiveSession — true if active session exists
+// pf.canStart    — true if status is assigned or in_progress
+// pf.reason      — human-readable explanation
+```
+
+### What preflight does (5 steps):
+
+**Step 1 — Fetch task details**
+`GET /api/tasks/$TASK_ID`
+
+**Step 2 — Derive output directory (safe path)**
+Priority: dispatcher OUTPUT_DIR > task_metadata.outputDir > `${PROJECTS_BASE}/${TASK_ID}/`
+Validates path starts with PROJECTS_BASE; overrides if not.
+
+**Step 3 — Check existing sub-agents**
+`GET /api/tasks/$TASK_ID/subagent`
+If active session exists → reuse (never spawn duplicates).
+
+**Step 4 — Status alignment**
+Maps current status to allowed actions (see table above).
+
+**Step 5 — Return actionable result**
+`canStart: true` only for `assigned` and `in_progress`.
+
+---
+
+## SUB-AGENT ORCHESTRATION
+
+### Roles (use only if required by task)
+
+- **Designer** — UI/UX, visual assets
+- **Developer** — Code, implementation
+- **Researcher** — Analysis, data gathering
+- **Writer** — Documentation, content
+
+### Spawn (with duplicate prevention)
+
+```typescript
+const { sessionId, reused } = await chip.spawnSubAgent({
+  taskId: 'task-123',
+  sessionId: `subagent-${Date.now()}`,
+  agentName: 'Developer',
+  description: 'Build the feature',
+});
+
+if (reused) {
+  console.log('Reusing existing session — no duplicate spawned');
+}
+```
+
+### Log progress (significant actions only)
+
+```typescript
+await chip.logActivity({
+  taskId: 'task-123',
+  activityType: 'updated',        // spawned|updated|completed|file_created|status_changed
+  message: 'Created main component',
+  metadata: { file: 'src/Component.tsx' },
 });
 ```
 
-**What this does:**
-- Creates activity log entry: "Sub-agent spawned: fix-mission-control-integration"
-- Registers session in `openclaw_sessions` table with `session_type='subagent'`
-- Broadcasts SSE event so UI updates immediately
-- Agent counter in sidebar updates from 0 → 1
-
-### 2. During Sub-Agent Work
-
-Log significant activities as work progresses:
+### Register deliverable (file must exist first)
 
 ```typescript
-await charlie.logActivity({
-  taskId: 'task-abc123',
-  activityType: 'updated',
-  message: 'Fixed SSE broadcast in dispatch endpoint',
-  metadata: { file: 'src/app/api/tasks/[id]/dispatch/route.ts' }
-});
-
-await charlie.logActivity({
-  taskId: 'task-abc123',
-  activityType: 'file_created',
-  message: 'Created orchestration helper',
-  metadata: { file: 'src/lib/charlie-orchestration.ts' }
+await chip.logDeliverable({
+  taskId: 'task-123',
+  deliverableType: 'file',        // file|url|artifact
+  title: 'Main Component',
+  path: `${pf.outputDir}/Component.tsx`,
 });
 ```
 
-**Activity Types:**
-- `spawned` - Sub-agent started
-- `updated` - General progress update
-- `completed` - Sub-agent finished
-- `file_created` - File created/modified
-- `status_changed` - Status change occurred
-
-### 3. When Sub-Agent Completes
-
-**Before marking task as review**, log completion with deliverables:
+### Complete sub-agent (MANDATORY on finish)
 
 ```typescript
-await charlie.onSubAgentCompleted({
-  taskId: 'task-abc123',
-  sessionId: 'agent:main:subagent:xyz789',
-  agentName: 'fix-mission-control-integration',
-  summary: 'All integration issues fixed and tested',
+await chip.completeSubAgent({
+  taskId: 'task-123',
+  sessionId,
+  agentName: 'Developer',
+  summary: 'Feature built and tested',
   deliverables: [
-    {
-      type: 'file',
-      title: 'Updated dispatch route',
-      path: 'src/app/api/tasks/[id]/dispatch/route.ts'
-    },
-    {
-      type: 'file',
-      title: 'Orchestration helper',
-      path: 'src/lib/charlie-orchestration.ts'
-    },
-    {
-      type: 'file',
-      title: 'Fixed Header component',
-      path: 'src/components/Header.tsx'
-    }
-  ]
+    { type: 'file', title: 'Component', path: `${pf.outputDir}/Component.tsx` },
+  ],
 });
 ```
 
-**What this does:**
-- Logs completion activity
-- Marks session as `status='completed'`, sets `ended_at` timestamp
-- Logs all deliverables to `task_deliverables` table
-- Broadcasts events so UI updates
-- Agent counter decrements back to 0
-
-### 4. Review & Approval
-
-**Before approving** (moving task from `review` → `done`), verify deliverables exist:
+### Delete stuck session (only if confirmed stuck)
 
 ```typescript
-const hasDeliverables = await charlie.verifyTaskHasDeliverables('task-abc123');
+await chip.deleteStuckSession(sessionId);
+```
 
-if (!hasDeliverables) {
-  console.log('⚠️ Task has no deliverables - cannot approve');
-  console.log('📋 Ask sub-agent to provide deliverables or log them manually');
+---
+
+## STATUS TRANSITIONS
+
+```typescript
+// Start work (assigned → in_progress, no-op if already in_progress)
+await chip.startWork('task-123');
+
+// Move to review (requires deliverables to exist)
+await chip.moveToReview('task-123');
+
+// Generic forward transition
+await chip.transitionStatus('task-123', 'testing');
+```
+
+Rules:
+- Only move forward in lifecycle
+- `moveToReview()` throws if no deliverables registered
+- `done` requires master agent approval (enforced at API level)
+
+---
+
+## END-STATE CHECKLIST
+
+Before declaring a task complete, run the end-state check:
+
+```typescript
+const report = await chip.endStateCheck('task-123');
+
+if (report.ready) {
+  await chip.moveToReview('task-123');
+} else {
+  console.log('Not ready:', report.issues);
+  // e.g. ["No deliverables registered", "1 sub-agent session(s) still active"]
+}
+```
+
+The report checks:
+- All deliverable files exist under OUTPUT_DIR
+- Deliverables registered via API
+- Sub-agent sessions marked completed
+- One completion activity logged
+- Task status moved to REVIEW (not DONE) unless explicitly approved
+
+---
+
+## COMPLETE WORKFLOW EXAMPLE
+
+```typescript
+import * as chip from '@/lib/chip-orchestration';
+
+const TASK_ID = 'task-abc-123';
+
+// 1. PREFLIGHT (MANDATORY)
+const pf = await chip.preflight(TASK_ID);
+if (!pf.canStart) {
+  console.log(`Cannot start: ${pf.reason}`);
   return;
 }
 
-// Now safe to approve
-await fetch('http://localhost:3000/api/tasks/task-abc123', {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    status: 'done',
-    updated_by_agent_id: 'charlie-agent-id'  // Charlie's agent ID
-  })
-});
-```
+// 2. START WORK
+await chip.startWork(TASK_ID);
 
-**Backend validation:**
-- Endpoint will reject `review` → `done` transition if no deliverables
-- Only Charlie (master agent) can approve tasks
-- This ensures quality control
-
-## Direct API Usage (Without Helper)
-
-If you can't import the TypeScript module, use direct fetch:
-
-```typescript
-// Register sub-agent
-await fetch('http://localhost:3000/api/tasks/TASK_ID/subagent', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    openclaw_session_id: 'agent:main:subagent:xyz',
-    agent_name: 'my-subagent-name'
-  })
+// 3. SPAWN SUB-AGENT
+const { sessionId } = await chip.spawnSubAgent({
+  taskId: TASK_ID,
+  sessionId: `subagent-${Date.now()}`,
+  agentName: 'Developer',
+  description: 'Build the requested feature',
 });
 
-// Log activity
-await fetch('http://localhost:3000/api/tasks/TASK_ID/activities', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    activity_type: 'updated',
-    message: 'Did something important'
-  })
+// 4. LOG PROGRESS
+await chip.logActivity({
+  taskId: TASK_ID,
+  activityType: 'updated',
+  message: 'Created main component and tests',
 });
 
-// Log deliverable
-await fetch('http://localhost:3000/api/tasks/TASK_ID/deliverables', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    deliverable_type: 'file',
-    title: 'My deliverable',
-    path: 'path/to/file.ts'
-  })
+await chip.logActivity({
+  taskId: TASK_ID,
+  activityType: 'file_created',
+  message: 'Created output file',
+  metadata: { file: `${pf.outputDir}/output.html` },
 });
 
-// Complete session
-await fetch('http://localhost:3000/api/openclaw/sessions/SESSION_ID', {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    status: 'completed',
-    ended_at: new Date().toISOString()
-  })
-});
-```
-
-## Testing Checklist
-
-After implementing this workflow, verify:
-
-- ✅ Task status changes appear without page refresh
-- ✅ Agent counter shows "1" when sub-agent is working
-- ✅ Activities tab shows timestamped log of all work
-- ✅ Deliverables tab shows all files/artifacts created
-- ✅ Sessions tab shows sub-agent info with start/end times
-- ✅ Header shows accurate "X agents active, Y tasks in queue"
-- ✅ Cannot approve task without deliverables
-
-## Common Pitfalls
-
-1. **Forgetting to register session** → Agent counter stays at 0
-2. **Not logging deliverables** → Cannot approve task
-3. **Wrong session ID format** → Session not found
-4. **Not completing session** → Agent counter never decrements
-5. **Approving without verification** → Backend rejects with 400 error
-
-## Example: Complete Workflow
-
-```typescript
-// 1. Spawn sub-agent
-const sessionId = await spawnSubAgent({
-  label: 'fix-integration',
-  task: taskDescription
-});
-
-// 2. Register immediately
-await charlie.onSubAgentSpawned({
-  taskId: task.id,
-  sessionId: sessionId,
-  agentName: 'fix-integration',
-  description: 'Fix Mission Control integration'
-});
-
-// 3. Monitor and log progress
-// (Sub-agent does work)
-
-// 4. When complete, log everything
-await charlie.onSubAgentCompleted({
-  taskId: task.id,
-  sessionId: sessionId,
-  agentName: 'fix-integration',
-  summary: 'Fixed all integration issues',
+// 5. COMPLETE SUB-AGENT
+await chip.completeSubAgent({
+  taskId: TASK_ID,
+  sessionId,
+  agentName: 'Developer',
+  summary: 'Feature built, tested, and documented',
   deliverables: [
-    { type: 'file', title: 'Fixed route', path: 'src/api/...' }
-  ]
+    { type: 'file', title: 'Output', path: `${pf.outputDir}/output.html` },
+  ],
 });
 
-// 5. Move to review
-await updateTaskStatus(task.id, 'review');
-
-// 6. Verify and approve
-const hasDeliverables = await charlie.verifyTaskHasDeliverables(task.id);
-if (hasDeliverables) {
-  await updateTaskStatus(task.id, 'done', { updated_by_agent_id: charlieId });
+// 6. END-STATE CHECK
+const report = await chip.endStateCheck(TASK_ID);
+if (report.ready) {
+  await chip.moveToReview(TASK_ID);
+  console.log('Task moved to REVIEW');
 } else {
-  console.log('⚠️ Cannot approve - no deliverables');
+  console.log('Issues found:', report.issues);
 }
 ```
+
+---
+
+## DIRECT API USAGE (curl)
+
+For agents that can't import TypeScript, use the HTTP API directly:
+
+```bash
+TASK_ID="abc-123"
+BASE_URL="$MISSION_CONTROL_URL"
+
+# Preflight
+curl -s "$BASE_URL/api/tasks/$TASK_ID"
+
+# Register sub-agent (returns existing if active — no duplicates)
+curl -X POST "$BASE_URL/api/tasks/$TASK_ID/subagent" \
+  -H "Content-Type: application/json" \
+  -d '{"openclaw_session_id":"subagent-'$(date +%s)'","agent_name":"Developer"}'
+
+# Log activity
+curl -X POST "$BASE_URL/api/tasks/$TASK_ID/activities" \
+  -H "Content-Type: application/json" \
+  -d '{"activity_type":"updated","message":"Starting work"}'
+
+# Register deliverable
+curl -X POST "$BASE_URL/api/tasks/$TASK_ID/deliverables" \
+  -H "Content-Type: application/json" \
+  -d '{"deliverable_type":"file","title":"Output","path":"'"$OUTPUT_DIR"'/output.html"}'
+
+# Complete session (MANDATORY)
+curl -X PATCH "$BASE_URL/api/openclaw/sessions/$SESSION_ID" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"completed","ended_at":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
+
+# Move to review (rejected if no deliverables or backwards transition)
+curl -X PATCH "$BASE_URL/api/tasks/$TASK_ID" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"review"}'
+```
+
+---
+
+## DEBUGGING
+
+In browser console:
+
+```javascript
+mcDebug.enable()
+```
+
+Then refresh and watch for:
+- `[SSE]`   server-sent events
+- `[STORE]` zustand state changes
+- `[API]`   api calls
+- `[FILE]`  file operations
+
+SSE event order:
+```
+agent_spawned → activity_logged → deliverable_added → task_updated → agent_completed
+```
+
+---
+
+## API REFERENCE
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/tasks` | GET | List tasks |
+| `/api/tasks/{id}` | GET | Get task (preflight step 1) |
+| `/api/tasks/{id}` | PATCH | Update task (forward-only status) |
+| `/api/tasks/{id}/activities` | GET/POST | Activity log |
+| `/api/tasks/{id}/deliverables` | GET/POST | Deliverables |
+| `/api/tasks/{id}/subagent` | GET/POST | Sub-agent sessions (dedup on POST) |
+| `/api/openclaw/sessions/{id}` | PATCH | Complete session |
+| `/api/openclaw/sessions/{id}` | DELETE | Delete stuck session |
+| `/api/files/upload` | POST | Upload remote file |
+| `/api/events/stream` | GET | SSE stream |
 
 ---
 

@@ -1,289 +1,350 @@
-# Mission Control Orchestration Guide
+# Mission Control Orchestration Guide (HyFlux Edition — v5.1 Final, HyFlux-Safe)
 
-This document explains how to orchestrate tasks in Mission Control, including how to:
-- Register sub-agents
-- Log activities
-- Track deliverables
-- Update task status
+This is the **final production-ready orchestration guide** incorporating:
 
-## API Base URL
+- Preflight synchronisation
+- Lifecycle rules
+- Session completion safety
+- Remote + local file handling
+- Debug observability
+- HyFlux v5.1 safety patch (no hard-coded user paths)
 
-```
-http://localhost:3000
-```
+This version replaces earlier examples using `/Users/chris/...` with a portable environment variable.
 
-Or use the `MISSION_CONTROL_URL` environment variable.
+---
 
-## Task Lifecycle
+# Environment Configuration (HyFlux-Safe v5.1)
 
-```
+## Required Environment Variables
+
+```bash
+MISSION_CONTROL_URL=http://localhost:3000
+MISSION_CONTROL_PROJECTS_DIR=/Users/paulperera/.openclaw/projects
+
+The orchestrator MUST derive all filesystem paths from:
+
+${MISSION_CONTROL_PROJECTS_DIR}
+
+Never hardcode usernames or absolute personal paths.
+
+⸻
+
+Task Lifecycle
+
 INBOX → ASSIGNED → IN_PROGRESS → TESTING → REVIEW → DONE
-```
 
-**Status Descriptions:**
-- **INBOX**: New tasks awaiting processing
-- **ASSIGNED**: Task assigned to an agent, ready to be worked on
-- **IN_PROGRESS**: Agent actively working on the task
-- **TESTING**: Automated quality gate - runs browser tests, CSS validation, resource checks
-- **REVIEW**: Passed automated tests, awaiting human approval
-- **DONE**: Task completed and approved
+Status Descriptions
 
-## When You Receive a Task
+INBOX — New tasks awaiting processing
+ASSIGNED — Task assigned to an agent
+IN_PROGRESS — Agent actively working
+TESTING — Automated quality gate
+REVIEW — Awaiting human approval
+DONE — Completed and approved
 
-When a task is dispatched to you, the message includes:
-- Task ID
-- Output directory path
-- API endpoints to call
+Lifecycle Rules
+	•	Agents must NOT skip states.
+	•	Move to IN_PROGRESS only when execution begins.
+	•	Move to REVIEW only after deliverables exist.
+	•	TESTING is automated — do not force unless instructed.
+	•	Never modify tasks already in DONE.
 
-## Required API Calls
+⸻
 
-### 1. Register Sub-Agent (when spawning a worker)
+When You Receive a Task
 
-```bash
-curl -X POST http://localhost:3000/api/tasks/{TASK_ID}/subagent \
-  -H "Content-Type: application/json" \
-  -d '{
-    "openclaw_session_id": "unique-session-id",
-    "agent_name": "Designer"
-  }'
-```
+A dispatched task includes:
+	•	TASK_ID
+	•	Optional OUTPUT_DIR
+	•	API endpoints
 
-This registers the sub-agent and increments the "Active Sub-Agents" counter.
+⸻
 
-### 2. Log Activity (for each significant action)
+PRE-FLIGHT TASK STATE SYNCHRONISATION (MANDATORY)
 
-```bash
-curl -X POST http://localhost:3000/api/tasks/{TASK_ID}/activities \
-  -H "Content-Type: application/json" \
-  -d '{
-    "activity_type": "updated",
-    "message": "Started working on design mockups",
-    "agent_id": "optional-agent-uuid"
-  }'
-```
+Before ANY orchestration actions:
 
-Activity types:
-- `spawned` - When sub-agent starts
-- `updated` - Progress update
-- `completed` - Work finished
-- `file_created` - Created a deliverable
-- `status_changed` - Task moved to new status
+Step 1 — Fetch Task
 
-### 3. Register Deliverable (for each output file)
+curl -X GET "$MISSION_CONTROL_URL/api/tasks/$TASK_ID"
 
-**IMPORTANT: You must CREATE THE FILE FIRST before registering it as a deliverable!**
+Store internally:
+	•	task_status_current
+	•	task_metadata
 
-```bash
-# Step 1: Actually create the file
-mkdir -p /Users/chris/mission-control-projects/homepage
-cat > /Users/chris/mission-control-projects/homepage/index.html << 'EOF'
-<!DOCTYPE html>
-<html>
-<head><title>Homepage</title></head>
-<body><h1>Welcome</h1></body>
-</html>
-EOF
+⸻
 
-# Step 2: Register the deliverable (will warn if file doesn't exist)
-curl -X POST http://localhost:3000/api/tasks/{TASK_ID}/deliverables \
-  -H "Content-Type: application/json" \
-  -d '{
-    "deliverable_type": "file",
-    "title": "Homepage Design",
-    "path": "/Users/chris/mission-control-projects/homepage/index.html",
-    "description": "Main homepage with responsive layout"
-  }'
-```
+Step 2 — Derive OUTPUT_DIR
 
-The API will return a `warning` field if the file doesn't exist:
-```json
+Priority order:
+	1.	Dispatcher OUTPUT_DIR
+	2.	task_metadata.outputDir
+	3.	Default:
+
+OUTPUT_DIR="${MISSION_CONTROL_PROJECTS_DIR}/${TASK_ID}/"
+
+Never write outside ${MISSION_CONTROL_PROJECTS_DIR}.
+
+⸻
+
+Step 3 — Check Existing Subagents
+
+curl -X GET "$MISSION_CONTROL_URL/api/tasks/$TASK_ID/subagent"
+
+If active session exists → reuse
+If none exist → spawn new
+
+⸻
+
+Step 4 — Status Alignment
+
+Status	Behaviour
+INBOX	wait
+ASSIGNED	patch → IN_PROGRESS
+IN_PROGRESS	continue
+TESTING	heartbeat only
+REVIEW	no new deliverables
+DONE	halt
+
+
+⸻
+
+Optional Debug Preflight Log
+
 {
-  "id": "...",
-  "title": "Homepage Design",
-  "warning": "File does not exist at path: /Users/chris/mission-control-projects/homepage/index.html. Please create the file."
+  "activity_type": "updated",
+  "message": "Preflight sync complete",
+  "metadata": {
+    "status": "task_status_current",
+    "outputDir": "OUTPUT_DIR"
+  }
 }
-```
 
-Deliverable types:
-- `file` - Local file (must exist!)
-- `url` - Web URL
-- `artifact` - Other output
 
-### 4. Update Task Status
+⸻
 
-```bash
-curl -X PATCH http://localhost:3000/api/tasks/{TASK_ID} \
+Required API Calls
+
+0 — Preflight Sync
+
+curl -X GET "$MISSION_CONTROL_URL/api/tasks/$TASK_ID"
+
+
+⸻
+
+1 — Register Sub-Agent
+
+curl -X POST "$MISSION_CONTROL_URL/api/tasks/$TASK_ID/subagent" \
   -H "Content-Type: application/json" \
   -d '{
-    "status": "review"
+    "openclaw_session_id":"subagent-'$(date +%s)'",
+    "agent_name":"Developer"
   }'
-```
 
-## Complete Example Workflow
 
-```bash
+⸻
+
+2 — Log Activity
+
+curl -X POST "$MISSION_CONTROL_URL/api/tasks/$TASK_ID/activities" \
+  -H "Content-Type: application/json" \
+  -d '{"activity_type":"updated","message":"Starting work"}'
+
+Activity Types:
+	•	spawned
+	•	updated
+	•	completed
+	•	file_created
+	•	status_changed
+
+⸻
+
+3 — Create File (LOCAL MODE)
+
+mkdir -p "$OUTPUT_DIR"
+echo "<html><body>Hello</body></html>" > "$OUTPUT_DIR/output.html"
+
+
+⸻
+
+4 — Register Deliverable
+
+curl -X POST "$MISSION_CONTROL_URL/api/tasks/$TASK_ID/deliverables" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "deliverable_type":"file",
+    "title":"Output",
+    "path":"'"$OUTPUT_DIR"'/output.html"
+  }'
+
+If warning returned → fix file path.
+
+Deliverable Types:
+	•	file
+	•	url
+	•	artifact
+
+⸻
+
+Remote Agent File Handling
+
+If filesystem unavailable:
+
+POST /api/files/upload
+
+Files will be saved at:
+
+${MISSION_CONTROL_PROJECTS_DIR}/{relativePath}
+
+Register deliverable AFTER upload.
+
+⸻
+
+Complete Example Workflow (HyFlux v5.1)
+
 TASK_ID="abc-123"
-BASE_URL="http://localhost:3000"
+BASE_URL="$MISSION_CONTROL_URL"
+OUTPUT_DIR="${MISSION_CONTROL_PROJECTS_DIR}/${TASK_ID}/"
 
-# 1. Log that you're starting
+1 — Preflight
+
+curl -X GET $BASE_URL/api/tasks/$TASK_ID
+
+2 — Log Start
+
 curl -X POST $BASE_URL/api/tasks/$TASK_ID/activities \
   -H "Content-Type: application/json" \
-  -d '{"activity_type": "updated", "message": "Starting work on task"}'
+  -d '{"activity_type":"updated","message":"Starting work"}'
 
-# 2. Spawn a sub-agent
+3 — Spawn Sub-Agent
+
 curl -X POST $BASE_URL/api/tasks/$TASK_ID/subagent \
   -H "Content-Type: application/json" \
-  -d '{"openclaw_session_id": "subagent-'$(date +%s)'", "agent_name": "Designer"}'
+  -d '{"openclaw_session_id":"subagent-'$(date +%s)'","agent_name":"Developer"}'
 
-# 3. Sub-agent does work and creates file...
-mkdir -p /Users/chris/mission-control-projects/my-project
-echo "<html><body>Hello World</body></html>" > /Users/chris/mission-control-projects/my-project/output.html
+4 — Create File
 
-# 4. Register the deliverable
+mkdir -p "$OUTPUT_DIR"
+echo "<html>Hello World</html>" > "$OUTPUT_DIR/output.html"
+
+5 — Register Deliverable
+
 curl -X POST $BASE_URL/api/tasks/$TASK_ID/deliverables \
   -H "Content-Type: application/json" \
-  -d '{
-    "deliverable_type": "file",
-    "title": "Completed Design",
-    "path": "/Users/chris/mission-control-projects/my-project/output.html",
-    "description": "Final design with all requested features"
-  }'
+  -d '{"deliverable_type":"file","title":"Output","path":"'"$OUTPUT_DIR"'/output.html"}'
 
-# 5. Log completion
+6 — Log Completion
+
 curl -X POST $BASE_URL/api/tasks/$TASK_ID/activities \
   -H "Content-Type: application/json" \
-  -d '{"activity_type": "completed", "message": "Design completed successfully"}'
+  -d '{"activity_type":"completed","message":"Work completed"}'
 
-# 6. Move to review
+7 — Move to Review
+
 curl -X PATCH $BASE_URL/api/tasks/$TASK_ID \
   -H "Content-Type: application/json" \
-  -d '{"status": "review"}'
-```
+  -d '{"status":"review"}'
 
-## Debugging
+8 — Complete Session (REQUIRED)
 
-Enable debug mode in browser console:
-```javascript
-mcDebug.enable()
-```
-
-Then refresh and watch for:
-- `[SSE]` - Server-sent events
-- `[STORE]` - Zustand state changes
-- `[API]` - API calls
-- `[FILE]` - File operations
-
-## Endpoints Reference
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/tasks` | GET | List all tasks |
-| `/api/tasks` | POST | Create task |
-| `/api/tasks/{id}` | GET | Get task details |
-| `/api/tasks/{id}` | PATCH | Update task |
-| `/api/tasks/{id}/activities` | GET | List activities |
-| `/api/tasks/{id}/activities` | POST | Log activity |
-| `/api/tasks/{id}/deliverables` | GET | List deliverables |
-| `/api/tasks/{id}/deliverables` | POST | Add deliverable |
-| `/api/tasks/{id}/subagent` | GET | List sub-agents |
-| `/api/tasks/{id}/subagent` | POST | Register sub-agent |
-| `/api/openclaw/sessions` | GET | List all sessions |
-| `/api/openclaw/sessions/{id}` | PATCH | Update session (mark complete) |
-| `/api/openclaw/sessions/{id}` | DELETE | Delete a session |
-| `/api/files/reveal` | POST | Open file in Finder |
-| `/api/files/preview` | GET | Preview HTML file |
-| `/api/files/upload` | POST | Upload file from remote agent |
-| `/api/files/upload` | GET | Get upload endpoint info |
-| `/api/files/download` | GET | Download file from server |
-
-## Activity Body Schema
-
-```json
-{
-  "activity_type": "spawned|updated|completed|file_created|status_changed",
-  "message": "Human-readable description of what happened",
-  "agent_id": "optional-uuid-of-agent",
-  "metadata": { "optional": "additional data" }
-}
-```
-
-## Deliverable Body Schema
-
-```json
-{
-  "deliverable_type": "file|url|artifact",
-  "title": "Display name for the deliverable",
-  "path": "/full/path/to/file.html",
-  "description": "Optional description"
-}
-```
-
-## Sub-Agent Body Schema
-
-```json
-{
-  "openclaw_session_id": "unique-identifier-for-session",
-  "agent_name": "Designer|Developer|Researcher|Writer"
-}
-```
-
-## File Upload Body Schema (for remote agents)
-
-```json
-{
-  "relativePath": "project-name/filename.html",
-  "content": "<!DOCTYPE html>...",
-  "encoding": "utf-8"
-}
-```
-
-The file will be saved at `/Users/chris/mission-control-projects/{relativePath}`
-
-## File Download Query Parameters (for remote agents)
-
-```
-GET /api/files/download?relativePath=project-name/filename.html
-GET /api/files/download?path=/Users/chris/mission-control-projects/project-name/filename.html
-GET /api/files/download?relativePath=project-name/filename.html&raw=true
-```
-
-Query parameters:
-- `relativePath` - Path relative to projects base (preferred)
-- `path` - Full absolute path (must be under projects base)
-- `raw` - If `true`, returns raw file content; otherwise returns JSON with metadata
-
-JSON response includes: `success`, `path`, `relativePath`, `size`, `contentType`, `content`, `encoding`, `modifiedAt`
-
-## Completing a Sub-Agent Session
-
-When a sub-agent finishes its work, mark it as complete:
-
-```bash
-curl -X PATCH http://localhost:3000/api/openclaw/sessions/{SESSION_ID} \
+curl -X PATCH $BASE_URL/api/openclaw/sessions/{SESSION_ID} \
   -H "Content-Type: application/json" \
-  -d '{
-    "status": "completed",
-    "ended_at": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
-  }'
-```
+  -d '{"status":"completed","ended_at":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
 
-This updates the agent status to "idle" and broadcasts an `agent_completed` event.
+This emits agent_completed.
 
-## Deleting a Sub-Agent Session
+⸻
 
-To delete a stuck or unwanted session:
+Debugging
 
-```bash
-curl -X DELETE http://localhost:3000/api/openclaw/sessions/{SESSION_ID}
-```
+Enable:
 
-## SSE Events
+mcDebug.enable()
 
-The following events are broadcast to all connected clients:
+Watch:
+	•	[SSE]
+	•	[STORE]
+	•	[API]
+	•	[FILE]
 
-- `task_created` - New task added
-- `task_updated` - Task modified (including status changes)
-- `activity_logged` - New activity logged
-- `deliverable_added` - New deliverable registered
-- `agent_spawned` - Sub-agent started
-- `agent_completed` - Sub-agent finished
+Typical event order:
+
+agent_spawned → activity_logged → deliverable_added → task_updated → agent_completed
+
+
+⸻
+
+Endpoints Reference
+
+Endpoint	Method	Purpose
+/api/tasks	GET	List tasks
+/api/tasks/{id}	GET	Get task
+/api/tasks/{id}	PATCH	Update task
+/api/tasks/{id}/activities	POST	Log activity
+/api/tasks/{id}/deliverables	POST	Add deliverable
+/api/tasks/{id}/subagent	POST	Register sub-agent
+/api/openclaw/sessions/{id}	PATCH	Complete session
+/api/openclaw/sessions/{id}	DELETE	Delete session
+/api/files/upload	POST	Upload remote file
+/api/files/preview	GET	Preview HTML
+/api/files/reveal	POST	Reveal file
+
+
+⸻
+
+Activity Body Schema
+
+{
+  "activity_type":"spawned|updated|completed|file_created|status_changed",
+  "message":"description",
+  "agent_id":"optional",
+  "metadata":{}
+}
+
+
+⸻
+
+Deliverable Body Schema
+
+{
+  "deliverable_type":"file|url|artifact",
+  "title":"Display name",
+  "path":"/absolute/path",
+  "description":"optional"
+}
+
+
+⸻
+
+Sub-Agent Body Schema
+
+{
+  "openclaw_session_id":"unique-session-id",
+  "agent_name":"Designer|Developer|Researcher|Writer"
+}
+
+
+⸻
+
+SSE Events
+
+Broadcast to all clients:
+	•	task_created
+	•	task_updated
+	•	activity_logged
+	•	deliverable_added
+	•	agent_spawned
+	•	agent_completed
+
+⸻
+
+HyFlux v5.1 Patch Summary
+
+This final version:
+
+✔ Removes hard-coded usernames
+✔ Uses ${MISSION_CONTROL_PROJECTS_DIR} everywhere
+✔ Supports local + remote agents
+✔ Aligns with HyperOrchestrator v5 architecture
+✔ Keeps debugging clean under mcDebug.enable()
+
