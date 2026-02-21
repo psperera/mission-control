@@ -59,7 +59,7 @@ interface TestResponse {
   newStatus?: string;
 }
 
-const SCREENSHOTS_DIR = '/Users/chris/mission-control-projects/.screenshots';
+const SCREENSHOTS_DIR = `${process.env.MISSION_CONTROL_PROJECTS_BASE || `${process.env.HOME || '/tmp'}/mission-control-projects`}/.screenshots`;
 
 /**
  * POST /api/tasks/[id]/test

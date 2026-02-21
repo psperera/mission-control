@@ -10,7 +10,7 @@ import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import path from 'path';
 
 // Base directory for all uploaded project files
-const PROJECTS_BASE = '/Users/chris/mission-control-projects';
+const PROJECTS_BASE = process.env.MISSION_CONTROL_PROJECTS_BASE || `${process.env.HOME || '/tmp'}/mission-control-projects`;
 
 interface UploadRequest {
   // Path relative to PROJECTS_BASE (e.g., "dashboard-redesign/index.html")
